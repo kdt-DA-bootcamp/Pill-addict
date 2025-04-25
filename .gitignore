@@ -179,3 +179,8 @@ pdf_read/__pycache__/
 *.pyc
 .DS_Store
 parsed_results.json
+pdf_read/venv/
+pdf_read/__pycache__/
+*.pyc
+.DS_Store
+parsed_results.json
