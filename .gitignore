@@ -174,3 +174,8 @@ cython_debug/
 .pypirc
 .json
 .csv
+pdf_read/venv/
+pdf_read/__pycache__/
+*.pyc
+.DS_Store
+parsed_results.json
