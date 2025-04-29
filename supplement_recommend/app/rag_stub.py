@@ -1,76 +1,51 @@
 from app.config import settings
 import openai
 
-openai.api_key = settings.openai_api_key
+# client 객체 생성
+client = openai.OpenAI(
+    api_key=settings.openai_api_key
+)
 
+def get_most_similar_function(user_input: str, candidates: list[str]) -> str | None:
+    """
+    사용자의 자유 입력(user_input)과 candidates 리스트를 비교하여
+    의미상 가장 가까운 기능을 LLM을 통해 고른다.
+    """
+    if not candidates:
+        return None
 
-def get_most_similar_function(user_input: str, candidates: list[str]) -> str:
-    """
-    사용자의 자유 입력과 candidates 리스트를 비교하여 가장 유사한 항목 1개 반환
-    """
-    import difflib
-    return difflib.get_close_matches(user_input, candidates, n=1, cutoff=0.3)[0] if candidates else None
+    options_text = "\n".join([f"- {func}" for func in candidates])
 
-    """
-    ▶ TODO ❶
-    • user_profile  : 설문 + 입력 텍스트가 dict 로 들어옴
-    • 반환           : [{product_id, product_name, score, rationale}, ...]
-
-    예시 흐름:
-    - 사용자 프로필에서 증상/기능 키워드 추출
-    - 벡터 DB에서 관련 논문/지식 검색
-    - LLM에 인젝션하여 추천 문장 생성 및 점수화
-    """
     prompt = f"""
-    너는 건강기능식품 추천 전문가야. 아래 사용자의 상태에 따라 가장 적절한 5개 제품을 추천해 줘.
+너는 건강 기능 추천 전문가야.
+다음은 건강 기능 리스트야:
+{options_text}
 
-    사용자 정보:
-    {user_profile}
+사용자가 '{user_input}' 라고 고민을 입력했어.
+리스트 중 가장 관련 있는 기능 **하나만** 정확히 골라서 답해.
+리스트에 없는 기능을 새로 만들지 말고, 반드시 주어진 리스트 중에서 하나만 선택해.
+답변은 기능 이름만 짧게 해줘.
+최종 답변 카드에는 해당 제품명을 검색해서 그 이미지를 같이 첨부해줘.
+"""
 
-    추천 형식:
-    - 제품명
-    - 추천 이유
-    - 성분 및 주의사항
-    """
+    print("[LLM 요청 prompt]")
+    print(prompt)
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o", 
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
+    try:
+        # client 사용해서 호출
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
 
+        # response 파싱
+        best_function = response.choices[0].message.content.strip()
 
-    return [{
-        "product_id": "P0001",
-        "product_name": "오메가3 고함량",
-        "score": 0.95,
-        "rationale": response.choices[0].message.content.strip()
-    }]
+        print("[LLM 응답 best_function]")
+        print(best_function)
 
-
-def chat_llm(user_msg: str, user_profile: dict) -> str:
-    """
-    ▶ TODO ❷
-    • 사용자 질문(user_msg)과 프로필을 받아 LLM 응답 생성
-
-    사용 예시:
-    "폐경 여성인데 어떤 영양제가 좋아요?"
-    """
-    prompt = f"""
-    너는 건강기능식품 전문 AI 챗봇이야.
-    아래 사용자 질문에 대해 친절하게 한국어로 답변해 줘.
-
-    [사용자 정보]
-    {user_profile}
-
-    [질문]
-    {user_msg}
-    """
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.6,
-    )
-
-    return response.choices[0].message.content.strip()
+        return best_function
+    except Exception as e:
+        print(f"LLM 호출 중 에러 발생: {e}")
+        return None

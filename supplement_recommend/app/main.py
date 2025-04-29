@@ -10,9 +10,6 @@ from fastapi.responses import JSONResponse
 from fastapi.requests import Request
 
 
-
-
-
 settings = get_settings()
 
 app = FastAPI(title="Supplement Recommendation API")
@@ -42,10 +39,10 @@ app.add_middleware(
 # Router 등록
 app.include_router(bodypart.router)
 
-# main.py 임시
+# main.py(디버깅용 임시)
 if __name__ == "__main__":
-    print("🔍 routes =", [route.path for route in app.routes])
+    print("routes =", [route.path for route in app.routes])
 
 @app.on_event("startup")
 async def _show_routes() -> None:
-    print("🛣  registered routes =", [r.path for r in app.routes])
+    print("registered routes =", [r.path for r in app.routes])
