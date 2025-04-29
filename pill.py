@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 
 st.set_page_config(layout="centered", page_title="건강 챗봇 UI")
 
@@ -99,13 +100,62 @@ elif st.session_state.page == "신체 부위 기반 추천":
     st.subheader("신체 부위 기반 건강 고민")
     st.image("https://gptonline.ai/media/human_body_sample.png", use_column_width=True, caption="인체 기능별 부위 선택")
 
-    body_part = st.radio("신체 부위를 선택하세요", ["눈", "간", "장", "피부", "관절", "심혈관/기억력"], horizontal=True)
+    body_part = st.radio(
+        "신체 부위를 선택하세요",
+        ["신경계", "소화/대사계", "생식/비뇨계", "신체 방어/면역계", "감각계", "심혈관계", "내분비계", "근육계"],
+        horizontal=True
+    )
+
     if body_part:
         st.session_state.selected_body_part = body_part
+
     if st.session_state.selected_body_part:
         user_input = st.text_area(f"{body_part} 관련 건강 고민을 입력하세요")
+
         if st.button("추천 요청"):
-            st.info(f"{body_part} 고민에 대한 정보를 서버에 전송 중입니다...")
+            st.info(f"'{body_part}' 관련 건강 고민을 서버에 전송 중입니다...")
+
+            # [1] FastAPI: 고민 -> 기능 매칭
+            match_response = requests.post(
+                "http://localhost:8000/bodypart/bodyfunction/match",
+                json={
+                    "body_part": st.session_state.selected_body_part,
+                    "function": user_input
+                }
+            )
+
+            if match_response.status_code == 200:
+                matched_function = match_response.json()["matched_function"]
+                st.success(f"선택한 고민과 가장 유사한 기능: {matched_function}")
+
+                recommend_req_data = {
+                    "body_part": st.session_state.selected_body_part,
+                    "function": matched_function
+                }
+
+                # [2] FastAPI: 매칭된 기능 -> 영양제 추천
+                response = requests.post("http://127.0.0.1:8000/bodypart/recommend", json=recommend_req_data)
+
+                top_n = 5  # 최대 추천 수를 우선 5개로 설정. 추후 기준 선정 필요.
+
+                if response.status_code == 200:
+                    supplements = response.json()
+                    if not supplements:
+                        st.warning("죄송합니다. 현재 입력하신 고민에 적합한 추천 제품이 없습니다.")
+                    else:
+                        st.success(f"당신을 위한 추천 제품 {min(len(supplements), top_n)}개를 소개할게요!")
+
+                        for supplement in supplements[:top_n]:
+                            st.markdown(f"""
+                                <div style="border:1px solid #ddd; border-radius:10px; padding:10px; margin:10px 0;">
+                                    <b>제품명:</b> {supplement['product_name']}<br>
+                                    <b>주요 기능:</b> {supplement['primary_function'] or '정보 없음'}<br>
+                                    <b>섭취 주의사항:</b> {supplement.get('caution', '특이사항 없음')}
+                                </div>
+                            """, unsafe_allow_html=True)
+            else:
+                st.error("서버 오류가 발생했습니다. 다시 시도해주세요.")
+           
 
 elif st.session_state.page == "연령대 기반 추천":
     st.subheader("연령대 기반 추천")
@@ -134,4 +184,3 @@ st.markdown("</div>", unsafe_allow_html=True)
 # --- 하단 안내 ---
 st.markdown("---")
 st.caption("영양제 추천 해드려요")
-
