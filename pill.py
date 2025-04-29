@@ -116,8 +116,10 @@ elif st.session_state.page == "신체 부위 기반 추천":
             st.info(f"'{body_part}' 관련 건강 고민을 서버에 전송 중입니다...")
 
             # [1] FastAPI: 고민 -> 기능 매칭
+            BASE_API_URL = "https://5d7d-125-243-42-212.ngrok-free.app"
+
             match_response = requests.post(
-                "http://localhost:8000/bodypart/bodyfunction/match",
+                f"{BASE_API_URL}/bodypart/bodyfunction/match",
                 json={
                     "body_part": st.session_state.selected_body_part,
                     "function": user_input
@@ -134,7 +136,7 @@ elif st.session_state.page == "신체 부위 기반 추천":
                 }
 
                 # [2] FastAPI: 매칭된 기능 -> 영양제 추천
-                response = requests.post("http://127.0.0.1:8000/bodypart/recommend", json=recommend_req_data)
+                response = requests.post(f"{BASE_API_URL}/bodypart/recommend", json=recommend_req_data)
 
                 top_n = 5  # 최대 추천 수를 우선 5개로 설정. 추후 기준 선정 필요.
 
