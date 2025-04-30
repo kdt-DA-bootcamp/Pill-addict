@@ -1,6 +1,5 @@
 import os
 import re
-import json
 import pdfplumber
 import pytesseract
 from PIL import Image
@@ -13,10 +12,122 @@ load_dotenv()
 
 # 📁 파일 경로 설정 (default 파일명)
 base_dir = os.path.dirname(__file__)
-pattern_file = os.path.join(base_dir, os.getenv("PATTERN_FILE", "pattern_map.json"))
-criteria_file = os.path.join(base_dir, os.getenv("CRITERIA_FILE", "criteria.json"))
+pattern_map = {
+    "이름": r"성명\s*([가-힣]+)",
+    "생년월일": r"주민등록번호\s*([0-9]{6})",
+    "검진일": r"검진일\s*([0-9]{4}\.\s*[0-9]{1,2}\.\s*[0-9]{1,2})",
+    "키(cm)": r"키\s*\(cm\).+?([0-9.]+)\s*/",
+    "몸무게(kg)": r"키\s*\(cm\).+?[0-9.]+\s*/\s*([0-9.]+)",
+    "BMI": r"체질량지수.*?([0-9.]+)",
+    "허리둘레(cm)": r"허리둘레.*?([0-9.]+)",
+    "수축기혈압": r"\(?수축기[^\d]*(\d+)\s*/",
+    "이완기혈압": r"\(?수축기[^\d]*\d+\s*/\s*(\d+)\s*mmHg",
+    "혈색소": r"혈색소.*?(\d+\.?\d*)",
+    "공복혈당": r"공복혈당.*?(\d+)",
+    "AST": r"AST.*?(\d+)",
+    "ALT": r"ALT.*?(\d+)",
+    "감마GTP": r"(감마지티피|γ-?GTP).*?(\d+)",
+    "요단백": r"요단백.*?(정상|경계|단백뇨 의심)",
+    "eGFR": r"신사구체여과율.*?(\d+)",
+    "우울증 점수구간": r"우울증상이 없음\((\s*\d+~\d+점)",
+    "총콜레스테롤": r"총콜레스테롤.*?(비해당)",
+    "중성지방": r"중성지방.*?(비해당)",
+    "HDL 콜레스테롤": r"고밀도 콜레스테롤.*?(비해당)",
+    "생활습관_절주": r"(절주 필요)",
+    "생활습관_금연": r"(금연 필요)",
+    "생활습관_운동": r"(운동 필요)"
+}
 
-# ✅ 텍스트 추출 (PDF, 이미지 대응)    
+criteria = {
+    "혈색소": {
+        "여성": {
+            "정상A": "12.0 <= x <= 15.5",
+            "정상B": "10.0 <= x < 12.0",
+            "질환의심": "x < 10.0"
+        },
+        "남성": {
+            "정상A": "13.0 <= x <= 16.5",
+            "정상B": "12.0 <= x < 13.0",
+            "질환의심": "x < 12.0"
+        }
+    },
+    "공복혈당": {
+        "공통": {
+            "정상A": "x < 100",
+            "정상B": "100 <= x <= 125",
+            "질환의심": "x >= 126"
+        }
+    },
+    "BMI": {
+        "공통": {
+            "정상A": "18.5 <= x <= 24.9",
+            "정상B": "x < 18.5 or 25.0 <= x <= 29.9",
+            "질환의심": "x >= 30"
+        }
+    },
+    "수축기혈압": {
+        "공통": {
+            "정상A": "x < 120",
+            "정상B": "120 <= x <= 139",
+            "질환의심": "x >= 140"
+        }
+    },
+    "이완기혈압": {
+        "공통": {
+            "정상A": "x < 80",
+            "정상B": "80 <= x <= 89",
+            "질환의심": "x >= 90"
+        }
+    },
+    "AST": {
+        "공통": {
+            "정상A": "x <= 40",
+            "정상B": "41 <= x <= 50",
+            "질환의심": "x > 50"
+        }
+    },
+    "ALT": {
+        "공통": {
+            "정상A": "x <= 35",
+            "정상B": "36 <= x <= 45",
+            "질환의심": "x > 45"
+        }
+    },
+    "감마GTP": {
+        "여성": {
+            "정상A": "8 <= x <= 35",
+            "정상B": "36 <= x <= 45",
+            "질환의심": "x > 45"
+        },
+        "남성": {
+            "정상A": "11 <= x <= 63",
+            "정상B": "64 <= x <= 77",
+            "질환의심": "x > 77"
+        }
+    },
+    "요단백": {
+        "공통": {
+            "정상A": "x == '정상'",
+            "정상B": "x == '경계'",
+            "질환의심": "'의심' in x"
+        }
+    },
+    "eGFR": {
+        "공통": {
+            "정상A": "x >= 60",
+            "질환의심": "x < 60"
+        }
+    },
+    "우울증 점수구간": {
+        "공통": {
+            "정상A": "'0~4점' in x",
+            "정상B": "'5~9점' in x",
+            "질환의심": "'10~19점' in x or '20~27점' in x"
+        }
+    }
+}
+
+# ✅ 텍스트 추출 (PDF, 이미지 대응)
 def extract_text(path_or_obj):
     if isinstance(path_or_obj, str):
         ext = os.path.splitext(path_or_obj)[1].lower()
@@ -89,10 +200,6 @@ def extract_abnormal(results):
         for k, v in results.items() if v != "정상A"
     }
 
-# ✅ JSON 로딩 유틸
-def load_json(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 # ✅ 외부에서 호출할 수 있도록 함수화
 def run_healthcheck_pipeline(file_path=None, file_obj=None):
@@ -100,16 +207,18 @@ def run_healthcheck_pipeline(file_path=None, file_obj=None):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             tmp_file.write(file_obj.read())
             tmp_path = tmp_file.name
-        text = extract_text(tmp_path)
-        os.remove(tmp_path)
+
+        try:
+            text = extract_text(tmp_path)
+        finally:
+            os.remove(tmp_path)
+
     elif file_path:
         text = extract_text(file_path)
     else:
         raise ValueError("file_path나 file_obj 둘 중 하나는 입력해야 합니다.")
 
     gender = infer_gender(text)
-    pattern_map = load_json(pattern_file)
-    criteria = load_json(criteria_file)
 
     parsed = parse_with_patterns(text, pattern_map)
     for field in ["몸무게(kg)"]:
