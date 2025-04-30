@@ -6,6 +6,7 @@ from app import crud
 from app.database import get_db
 from app.models import BodyFunction
 from app.rag_stub import get_most_similar_function 
+from typing import Optional
 
 
 router = APIRouter(prefix="/bodypart", tags=["Body‑Part Recommendation"])
@@ -18,8 +19,8 @@ class BodyPartRequest(BaseModel):
 class SupplementOut(BaseModel):
     product_name: str
     product_id: str
-    primary_function: str | None = None
-    caution: str | None = None
+    primary_function: Optional[str] = None
+    caution: Optional[str] = None
 
 # 핵심 로직
 # 1. 기능선택
