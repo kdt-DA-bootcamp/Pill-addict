@@ -116,7 +116,8 @@ elif st.session_state.page == "신체 부위 기반 추천":
             st.info(f"'{body_part}' 관련 건강 고민을 서버에 전송 중입니다...")
 
             # [1] FastAPI: 고민 -> 기능 매칭
-            BASE_API_URL = "https://5d7d-125-243-42-212.ngrok-free.app"
+            BASE_API_URL = "http://13.238.240.69:8000"
+
 
             match_response = requests.post(
                 f"{BASE_API_URL}/bodypart/bodyfunction/match",
