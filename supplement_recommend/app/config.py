@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import Optional
+
 
 class Settings(BaseSettings):
     # DB 설정
@@ -9,7 +11,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     allowed_origins: str = "http://localhost:8501"
     rows_per_req: int = 1000
-    openai_api_key: str | None = None
+    openai_api_key: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="allow" )
     

@@ -1,12 +1,13 @@
 from app.config import settings
 import openai
+from typing import Optional
 
 # client 객체 생성
 client = openai.OpenAI(
     api_key=settings.openai_api_key
 )
 
-def get_most_similar_function(user_input: str, candidates: list[str]) -> str | None:
+def get_most_similar_function(user_input: str, candidates: list[str]) -> Optional[str]:
     """
     사용자의 자유 입력(user_input)과 candidates 리스트를 비교하여
     의미상 가장 가까운 기능을 LLM을 통해 고른다.
