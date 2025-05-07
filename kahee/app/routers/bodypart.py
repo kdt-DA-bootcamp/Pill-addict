@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sql_utils import sql_utils
+from app.sql_utils import sql_utils
 
-from rag.retriever import retrieve
-from rag.generator import generate_answer
+from app.rag.retriever import retrieve
+from app.rag.generator import generate_answer
 # from app.rag_stub import get_most_similar_function  # 기존 유사도 함수 사용...해야 하는데 파일 충돌 ---> 수정 필요
 
 router = APIRouter(prefix="/bodypart", tags=["Body‑Part Recommendation"])

@@ -1,8 +1,8 @@
 import pandas as pd
-from config import settings
+from app.config import settings
 
 def load_body_function_options():
-    df = pd.read_csv("data/body_function.csv")
+    df = pd.read_csv("data/body_function.json")
     options = {}
     for _, row in df.iterrows():
         body = row["body"]
@@ -12,9 +12,9 @@ def load_body_function_options():
 
 
 def fetch_functions_by_body(body_part):
-    df = pd.read_csv("data/body_function.csv")
+    df = pd.read_csv("data/body_function.json")
     matched_rows = df[df["body"] == body_part]
     if matched_rows.empty:
         return []
     func_str = matched_rows.iloc[0]["function"]
-    return [f.strip() for f in func_str.split(",") if f.strip()]
+    return [f.strip() for f in func_str.split(",") if f.strip()] 

@@ -4,24 +4,41 @@ from sentence_transformers import SentenceTransformer
 import chromadb
 from chromadb.config import Settings
 import json
+from fastapi.middleware.cors import CORSMiddleware
 
 # 설정 가져오기
 from app.routers import bodypart
 from app.config import settings
-from rag.retriever import retrieve
-from rag.generator import generate_answer
+from app.rag.retriever import retrieve
+from app.rag.generator import generate_answer
 
 
 app = FastAPI(title=settings.API_TITLE)
 app.include_router(bodypart.router)
+
+# CORS 설정: 브라우저가 로컬 아닌 다른 곳에 요청을 보낼 때 차단 방지 위해 필요
+app.add_middleware(
+    CORSMiddleware,uvicorn app.api.main:app --reload
+
+    allow_origins=["*"],  # 모든 도메인 허용 (배포 시에는 제한 필요!)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 client      = chromadb.Client(Settings(persist_directory=settings.CHROMA_DIR))
 collection  = client.get_collection(settings.COLLECTION_NAME)
 embed_model = SentenceTransformer(settings.EMBED_MODEL_ID)
 
 # 메타데이터 로드 (파일 직접 가져오도록 설정)
-with open(settings.METADATA_FILE, encoding="utf-8") as f:
-    metadata1 = json.load(f)
+with open(settings.METADATA_FILE_BODY, encoding="utf-8") as f:
+    metadata_body = json.load(f)
+
+with open(settings.METADATA_FILE_INGREDIENT, encoding="utf-8") as f:
+    metadata_ingredient = json.load(f)
+
+with open(settings.METADATA_FILE_ALLERGY, encoding="utf-8") as f:
+    metadata_allergy = json.load(f)
 
 class SearchReq(BaseModel):
     query: str
