@@ -22,7 +22,7 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS")
 ROWS_PER_REQ    = os.getenv("ROWS_PER_REQ")
 
 
-
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class Settings(BaseSettings):
     CHROMA_DIR: str
     COLLECTION_NAME: str
@@ -39,5 +39,18 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+
+    @property
+    def abs_metadata_file_body(self):
+        return os.path.join(BASE_DIR, self.METADATA_FILE_BODY)
+    
+    @property
+    def abs_metadata_file_ingredient(self):
+        return os.path.join(BASE_DIR, self.METADATA_FILE_INGREDIENT)
+
+    @property
+    def abs_metadata_file_allergy(self):
+        return os.path.join(BASE_DIR, self.METADATA_FILE_ALLERGY)
+
 
 settings = Settings()

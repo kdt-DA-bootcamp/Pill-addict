@@ -5,10 +5,11 @@ import chromadb
 from chromadb.config import Settings
 import json
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # 설정 가져오기
 from app.routers import bodypart
-from app.config import settings
+from app.config.settings import settings 
 from app.rag.retriever import retrieve
 from app.rag.generator import generate_answer
 
@@ -18,8 +19,7 @@ app.include_router(bodypart.router)
 
 # CORS 설정: 브라우저가 로컬 아닌 다른 곳에 요청을 보낼 때 차단 방지 위해 필요
 app.add_middleware(
-    CORSMiddleware,uvicorn app.api.main:app --reload
-
+    CORSMiddleware,
     allow_origins=["*"],  # 모든 도메인 허용 (배포 시에는 제한 필요!)
     allow_credentials=True,
     allow_methods=["*"],
@@ -31,14 +31,20 @@ collection  = client.get_collection(settings.COLLECTION_NAME)
 embed_model = SentenceTransformer(settings.EMBED_MODEL_ID)
 
 # 메타데이터 로드 (파일 직접 가져오도록 설정)
-with open(settings.METADATA_FILE_BODY, encoding="utf-8") as f:
+file_path = settings.abs_metadata_file_body
+
+with open(file_path, encoding="utf-8") as f:
     metadata_body = json.load(f)
 
-with open(settings.METADATA_FILE_INGREDIENT, encoding="utf-8") as f:
+with open(settings.abs_metadata_file_ingredient, encoding="utf-8") as f:
     metadata_ingredient = json.load(f)
 
-with open(settings.METADATA_FILE_ALLERGY, encoding="utf-8") as f:
+with open(settings.abs_metadata_file_allergy, encoding="utf-8") as f:
     metadata_allergy = json.load(f)
+
+
+print(f"BODY file: {file_path}")
+
 
 class SearchReq(BaseModel):
     query: str
