@@ -183,4 +183,4 @@ else:
 # --- 카드 종료 및 하단 ---
 st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("---")
-st.caption("영양제 추천 해드려요")
+st.caption("ⓒ 2025 Pill-Addict 팀 · 영양제 추천 챗봇 \n실제 의료 상담은 전문가와 상담하세요.")
