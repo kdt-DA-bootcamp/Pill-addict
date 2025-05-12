@@ -1,29 +1,28 @@
-#추후 구체화 필요
-import openai
-from app.config import settings
+## LLM 답변 생성 프롬프트
+## 이후 수정 필요요
 
-openai.api_key = settings.OPENAI_API_KEY  # .env에 키 추가시 사용
+# 라이브러리 모음
+from typing import List
+from openai import OpenAI
+from langchain_openai import ChatOpenAI
+from langchain.schema import Document
 
-def generate_answer(context_list, user_query):
-    context = "\n".join(context_list)
-    prompt = f"""
-다음 컨텍스트를 참고하여 사용자의 질문에 답해주세요.
 
---- 컨텍스트 ---
+# 프롬프트 작성
+_llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2)
+
+PROMPT = """당신은 기능성 영양제 전문가입니다.
+다음 컨텍스트를 참고하여 사용자의 질문에 한국어로 정확히 답하세요.
+
+컨텍스트:
 {context}
----------------
 
-질문: {user_query}
-
+질문: {question}
 답변:
 """
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "당신은 영양제 추천 전문가입니다."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3
-    )
-    return response["choices"][0]["message"]["content"].strip()
+def generate_answer(context_docs: List[Document], question: str) -> str:
+    context = "\n".join([d.page_content for d in context_docs])
+    prompt = PROMPT.format(context=context, question=question)
+    return _llm.invoke(prompt).content.strip()
+

@@ -19,20 +19,30 @@ def get_bodypart_options() -> dict[str,list[str]]:
 
 @st.cache_data
 def match_function(body_part: str, user_input: str) -> str | None:
+    url = f"{API_BASE}/bodypart/bodyfunction/match"
     payload = {"body_part": body_part, "function": user_input}
-    res = requests.post(f"{API_BASE}/bodypart/bodyfunction/match",
-                        json=payload, timeout=15)
-    if not res.ok:
+    print("🔍 매칭 요청:", payload)
+    
+    res = requests.post(url, json=payload)
+    if res.status_code != 200:
+        print("❌ 유사 기능 매칭 실패:", res.text)
         return None
+
     return res.json().get("matched_function")
 
-def get_recommendation(body_part: str, best_func: str) -> dict:
+# 2. 기능별 추천 요청
+def get_recommendation(body_part: str, matched_function: str) -> dict | None:
     url = f"{API_BASE}/bodypart/recommend"
-    payload = {"body_part": body_part, "function": best_func}
-    print("🔎 추천 API 호출 URL:", url)
-    print("🔎 추천 API payload:", payload)
+    payload = {"body_part": body_part, "function": matched_function}
+    print("📡 추천 요청:", payload)
+
     res = requests.post(url, json=payload)
-    return res.json()        # {"recommendation": ..., "context": [...]}
+    if res.status_code != 200:
+        print("❌ 추천 실패:", res.text)
+        return None
+
+    return res.json()
+
 
 # --- 세션 초기화 ---
 if "page" not in st.session_state:
@@ -211,9 +221,12 @@ elif st.session_state.page == "신체 부위 기반 추천":
         st.success("추천 결과")
         st.markdown(f"**매칭된 기능** : `{best_func}`")
         st.markdown("### AI 추천")
-        st.write(result["recommendation"])
+        if result and result.get("recommendation"):
+            st.write(result["recommendation"])
+        else:
+            st.error("API 호출 실패 또는 빈 응답입니다.")
 
-        with st.expander("🔍 근거로 사용된 문맥 보기"):
+        with st.expander("근거로 사용된 문맥 보기"):
             for ctx in result["context"]:
                 st.markdown(f"- {ctx}")
 

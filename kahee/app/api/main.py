@@ -1,20 +1,23 @@
+##  핵심 로직 ##
+
 from fastapi import FastAPI
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
-import chromadb
-from chromadb.config import Settings as ChromaSettings
+from fastapi import HTTPException
 import json
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from langchain_openai import OpenAIEmbeddings
 
 # 설정 가져오기
 from app.config.metadata_loader import metadata_supplement
 from app.config.settings import settings 
+from app.config.chromadb_loader import vectorstore
+from app.config.metadata_loader import supp_index
+from app.config.chromadb_loader import collection
+from app.rag import retriever, generator
 from app.rag.retriever import retrieve
 from app.rag.generator import generate_answer
 from app.routers import bodypart
-
-
+from chromadb.config import Settings as ChromaSettings
 
 app = FastAPI(title=settings.API_TITLE)
 
@@ -29,11 +32,8 @@ app.add_middleware(
 
 app.include_router(bodypart.router)
 
-client      = chromadb.Client(ChromaSettings(persist_directory=settings.CHROMA_DIR))
-collection  = client.get_or_create_collection(settings.COLLECTION_NAME)
-embed_model = SentenceTransformer(settings.EMBED_MODEL_ID)
 
-# 메타데이터 로드 (파일 직접 가져오도록 설정)
+# 메타데이터(파일단위데이터) 로드 (파일 직접 가져오도록 설정)
 with open(settings.abs_metadata_ingredient, encoding="utf-8") as f:
     metadata_ingredient = json.load(f)
 
@@ -46,10 +46,8 @@ with open(settings.abs_metadata_body, encoding="utf-8") as f:
 with open(settings.abs_metadata_supplement, encoding="utf-8") as f:
     metadata_supplement = json.load(f)
 
-
 with open(settings.abs_vectors_file, encoding="utf-8") as f:
     vector_meta = json.load(f)
-
 
 
 class SearchReq(BaseModel):
@@ -60,49 +58,32 @@ class SearchResItem(BaseModel):
     info: str
     distance: float
 
-class RAGReq(BaseModel):
-    query: str
-    top_k: int = 5
+class RAGReq(SearchReq): pass
 
-#디버깅용
-print(f"벡터 DB에 등록된 총 문서 수: {collection.count()}")
+
+# 디버깅용 출력 메세지
+print(f"벡터 DB에 등록된 총 데이터 수: {collection.count()}")
 print(f"CHROMA_DIR={settings.CHROMA_DIR}")
 print(f"COLLECTION_NAME={settings.COLLECTION_NAME}")
 
-@app.post("/search", response_model=list[SearchResItem])
+
+# 엔드포인트 설정(로직 전개)
+@app.post("/search")
 def search(req: SearchReq):
-    q_emb = embed_model.encode(req.query).tolist()
-    out   = collection.query(
-        query_embeddings=[q_emb],
-        n_results=req.top_k,
-        include=["distances", "metadatas"]
-    )
-    metadatas = out["metadatas"][0]
-    dists     = out["distances"][0]
-    return [
-        SearchResItem(text=metadatas[i]["info"], distance=dists[i])
-        for i in range(len(metadatas))
-    ]
+    hits = vectorstore.similarity_search(req.query, req.top_k)
+    return [{"info": h.page_content, "distance": h.metadata.get("distance")} for h in hits]
 
 @app.post("/rag_search")
 def rag_search(req: RAGReq):
-    # 1. 벡터 검색
-    context_list = retrieve(req.query, req.top_k)
-    # 2️. LLM 호출
-    answer = generate_answer(context_list, req.query)
-    # 3️.  반환
-    return {
-        "query": req.query,
-        "context": context_list,
-        "answer": answer
-    }
+    ctx = retriever.retrieve(req.query, req.top_k)
+    answer = generator.generate_answer(ctx, req.query)
+    return {"context": [d.page_content for d in ctx], "answer": answer}
 class MetaQueryReq(BaseModel):
     product_id: str
 
 @app.post("/meta_lookup")
 def meta_lookup(req: MetaQueryReq):
-    out = collection.get(ids=[req.product_id], include=["metadatas"])
-    meta = out.get("metadatas", [None])[0]
+    meta = supp_index.get(str(req.product_id))
+    if not meta:
+        raise HTTPException(404, "해당 id의 영양제제가 없습니다.")
     return {"metadata": meta}
-
-
