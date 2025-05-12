@@ -1,3 +1,7 @@
+chroma_chunks_index/
+soobin/msd_chroma_db/
+soobin/ragdata/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

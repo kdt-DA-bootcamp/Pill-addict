@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+streamlit
+langchain==0.0.0  # (버전 예) or langchain_community, langchain_openai
+langchain-openai
+langchain-community
+pydantic
+requests
+python-dotenv
