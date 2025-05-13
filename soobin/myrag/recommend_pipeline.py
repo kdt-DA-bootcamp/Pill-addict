@@ -1,38 +1,33 @@
 """
 recommend_pipeline.py
-────────────────────────────────────────────────────────────
-exam_info / body_part / symptom  →  기능 → 성분
-        → MSD(부작용) + 제품 DB 매칭 → 구조화 JSON
-        → generate_natural_answer() 로 Markdown 답변 생성
+
+- 성분(ingredients)을 최대 3개까지만 사용
+- search_side_effects()에서 RAG 문서를 최대 300자로 잘라서 LLM에 넘김
 """
 
 from __future__ import annotations
-
-import json, os
+import json
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# ────────────── 프로젝트 경로 설정 ──────────────────────────
-BASE_DIR   = Path(__file__).resolve().parent.parent        # .../soobin
-DATA_DIR   = BASE_DIR / "ragdata"                          # .../soobin/ragdata
-PERSIST_DIR = BASE_DIR / "msd_chroma_db"                   # Chroma index
+BASE_DIR    = Path(__file__).resolve().parent.parent  # .../soobin
+DATA_DIR    = BASE_DIR / "ragdata"
+PERSIST_DIR = BASE_DIR / "msd_chroma_db"
 
-# ────────────── 공통 유틸 ──────────────────────────────────
 def load_json(path: Path):
     if not path.exists():
         raise FileNotFoundError(path)
     with path.open(encoding="utf-8") as f:
         return json.load(f)
 
-# 캐싱해 두면 파일 I/O 최소화
 _function_ingredient = load_json(DATA_DIR / "function_ingredient.json")
 _body_function       = load_json(DATA_DIR / "body_function.json")
 _supplement_data     = load_json(DATA_DIR / "supplement.json")
 
-# ────────────── MSD RAG 검색 클래스 ────────────────────────
-class MsdRagSearch:
-    """Chroma(벡터 DB) + OpenAI Embeddings wrapper"""
 
+class MsdRagSearch:
+    """Chroma(벡터 DB) + OpenAI Embeddings"""
     def __init__(self, openai_api_key: str, persist_dir: Path = PERSIST_DIR):
         from langchain_openai import OpenAIEmbeddings
         from langchain_community.vectorstores import Chroma
@@ -47,9 +42,16 @@ class MsdRagSearch:
         docs = self.db.similarity_search(ingredient, k=k)
         if not docs:
             return ["추가 정보 없음"]
-        return [d.page_content[:200].strip() + "…" for d in docs]
+        # ────────── (A) 최대 300자 슬라이스 ──────────
+        # 필요시 300 → 200, 100 등으로 더 줄여도 됨
+        results = []
+        for d in docs:
+            snippet = d.page_content[:300].strip() + "…"
+            results.append(snippet)
+        return results
 
-# ────────────── 파싱 헬퍼들 ────────────────────────────────
+
+# ───── 파싱 함수 ─────
 def parse_exam_info(text: Optional[str]) -> List[str]:
     if not text:
         return []
@@ -58,7 +60,6 @@ def parse_exam_info(text: Optional[str]) -> List[str]:
         out.append("간 건강")
     if "혈압" in text:
         out.append("혈압")
-    # 필요 시 추가 규칙…
     return out
 
 def parse_body_function(body_part: Optional[str]) -> List[str]:
@@ -67,7 +68,7 @@ def parse_body_function(body_part: Optional[str]) -> List[str]:
     matched: List[str] = []
     for item in _body_function:
         if body_part in item["body"]:
-            matched.extend([x.strip() for x in item["function"].split(",")])
+            matched.extend(x.strip() for x in item["function"].split(","))
     return matched
 
 def parse_symptom(symptom: Optional[str]) -> List[str]:
@@ -76,8 +77,8 @@ def parse_symptom(symptom: Optional[str]) -> List[str]:
     out: List[str] = []
     if "피로" in symptom:
         out.append("피로")
-    if "속쓰림" in symptom or "소화" in symptom:
-        out.append("위")
+    if "기억력" in symptom:
+        out.append("기억력")
     return out
 
 def get_ingredients(func_list: List[str]) -> List[str]:
@@ -87,23 +88,22 @@ def get_ingredients(func_list: List[str]) -> List[str]:
     for f in func_list:
         for item in _function_ingredient:
             if f in item["function"]:
-                matched.extend([x.strip() for x in item["ingredient"].split(",")])
+                matched.extend(x.strip() for x in item["ingredient"].split(","))
     return list(set(matched))
 
 def get_supplements(ingredients: List[str]) -> List[Dict]:
+    if not ingredients:
+        return []
     results: List[Dict] = []
     for sup in _supplement_data:
-        # .get()가 None일 경우 ""로 대체
-        raw_str = sup.get("RAWMTRL_NM") or ""
-        fnc_str = sup.get("PRIMARY_FNCLTY") or ""
-        combined = (raw_str + fnc_str).lower()
-
+        raw_name = sup.get("RAWMTRL_NM") or ""
+        fnclty   = sup.get("PRIMARY_FNCLTY") or ""
+        combined = (raw_name + fnclty).lower()
         if any(ing.lower() in combined for ing in ingredients):
             results.append(sup)
     return results
 
-
-# ────────────── 핵심 파이프라인 ────────────────────────────
+# ───── 메인 파이프라인 ─────
 def process_recommendation(
     *,
     exam_info: Optional[str],
@@ -111,7 +111,6 @@ def process_recommendation(
     symptom: Optional[str],
     openai_api_key: str,
 ) -> Dict:
-    # 1) 텍스트 → 기능 키워드
     funcs = set(
         parse_exam_info(exam_info)
         + parse_body_function(body_part)
@@ -120,22 +119,23 @@ def process_recommendation(
     if not funcs:
         funcs = {"기능 없음"}
 
-    # 2) 기능 → 성분
     ingredients = get_ingredients(list(funcs)) or ["성분 없음"]
 
-    # 3) MSD 부작용 검색
+    if "성분 없음" not in ingredients:
+        # ────────── (B) 성분 최대 3개 제한 ──────────
+        ingredients = ingredients[:3]
+
     msd_info: Dict[str, List[str]] = {}
     if "성분 없음" not in ingredients:
         rag = MsdRagSearch(openai_api_key)
         for ing in ingredients:
+            # k=1, 그리고 search_side_effects()에서 300자 제한
             msd_info[ing] = rag.search_side_effects(ing, k=1)
 
-    # 4) 보충제 제품 후보
-    supplements = (
-        get_supplements(ingredients) if "성분 없음" not in ingredients else []
-    )
+    supplements = []
+    if "성분 없음" not in ingredients:
+        supplements = get_supplements(ingredients)
 
-    # 5) 구조화 데이터 반환
     return {
         "기능": list(funcs),
         "성분": ingredients,
@@ -143,13 +143,15 @@ def process_recommendation(
         "제품": supplements or "없음",
     }
 
-# ────────────── 자연어 답변 생성 (선택) ─────────────────────
-def generate_natural_answer(data: Dict, openai_api_key: str) -> str:
-    """
-    process_recommendation() 결과 JSON → Markdown 답변
-    """
+# ───── LLM 자연어 생성 ─────
+def generate_natural_answer(
+    data: Dict,
+    openai_api_key: str,
+    user_input: str
+) -> str:
     from langchain_openai import ChatOpenAI
     from langchain.schema import SystemMessage, HumanMessage
+    import json
 
     llm = ChatOpenAI(
         openai_api_key=openai_api_key,
@@ -160,41 +162,47 @@ def generate_natural_answer(data: Dict, openai_api_key: str) -> str:
     sys_msg = SystemMessage(
         content=(
             "당신은 영양제 전문가 어시스턴트입니다. "
-            "근거 기반 정보만 제공하고, 데이터에 없는 내용은 '해당 정보 없음'이라고 답합니다."
+            "사용자의 입력을 최우선으로 고려하고, "
+            "비속어나 부적절한 표현은 그대로 출력하지 말고 정중히 안내하세요. "
+            "근거 없는 내용은 '해당 정보 없음'이라고 답하세요."
         )
     )
 
-    bullet = (
-        lambda xs: "\n".join(f"- {x}" for x in xs)
-        if isinstance(xs, list)
-        else str(xs)
-    )
+    def bullet(xs):
+        if isinstance(xs, list):
+            return "\n".join(f"- {x}" for x in xs)
+        return str(xs)
+
+    msd_str = json.dumps(data.get("MSD", {}), ensure_ascii=False, indent=2)
+    product_str = json.dumps(data.get("제품", {}), ensure_ascii=False, indent=2)
 
     human_msg = HumanMessage(
         content=f"""
-[기능]
-{bullet(data['기능'])}
+[사용자 직접 입력]
+{user_input}
 
-[성분]
-{bullet(data['성분'])}
+[기능(시스템 추론)]
+{bullet(data.get('기능', []))}
 
-[MSD 스니펫]
-{json.dumps(data['MSD'], ensure_ascii=False, indent=2)}
+[성분(시스템 추론)]
+{bullet(data.get('성분', []))}
+
+[MSD(부작용)]
+{msd_str}
 
 [추천 제품]
-{json.dumps(data['제품'][:3], ensure_ascii=False, indent=2)}
+{product_str}
 
-위 정보를 바탕으로
+---
 
-1) 사용자의 건강 고민을 한 문장으로 요약  
-2) 도움이 될 핵심 성분(2~3개) + 간단 효과  
-3) 부작용·약물상호작용(있으면) 제시  
-4) 예시 제품 1~2개를 표로 (없으면 '제품 정보 없음')  
-
-Markdown 형식으로 작성하세요.
+지시사항:
+1) 사용자 입력을 먼저 한 문장으로 요약
+2) 도움이 될 성분(2~3개) + 간단 효과
+3) 부작용·약물상호작용(있으면)
+4) 예시 제품(1~2개)
+---
 """
     )
 
     answer = llm.invoke([sys_msg, human_msg]).content
     return answer.strip()
- 
