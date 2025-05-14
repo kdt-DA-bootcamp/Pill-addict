@@ -1,23 +1,14 @@
 ##  핵심 로직 ##
 
-from fastapi import FastAPI
-from pydantic import BaseModel
-from fastapi import HTTPException
-import json
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_openai import OpenAIEmbeddings
+from pydantic import BaseModel
+import json
 
 # 설정 가져오기
-from app.config.metadata_loader import metadata_supplement
 from app.config.settings import settings 
-from app.config.chromadb_loader import vectorstore
-from app.config.metadata_loader import supp_index
-from app.config.chromadb_loader import collection
 from app.rag import retriever, generator
-from app.rag.retriever import retrieve
-from app.rag.generator import generate_answer
 from app.routers import bodypart
-from chromadb.config import Settings as ChromaSettings
 
 app = FastAPI(title=settings.API_TITLE)
 
@@ -32,58 +23,32 @@ app.add_middleware(
 
 app.include_router(bodypart.router)
 
-
-# 메타데이터(파일단위데이터) 로드 (파일 직접 가져오도록 설정)
-with open(settings.abs_metadata_ingredient, encoding="utf-8") as f:
-    metadata_ingredient = json.load(f)
-
-with open(settings.abs_metadata_allergy, encoding="utf-8") as f:
-    metadata_allergy = json.load(f)
-
-with open(settings.abs_metadata_body, encoding="utf-8") as f:
-    metadata_body = json.load(f)
-
-with open(settings.abs_metadata_supplement, encoding="utf-8") as f:
-    metadata_supplement = json.load(f)
-
-with open(settings.abs_vectors_file, encoding="utf-8") as f:
-    vector_meta = json.load(f)
-
-
+# 엔드포인트 설정(로직 전개: 기타 엔드포인트는 모두 삭제 or retriever로 넘김)
 class SearchReq(BaseModel):
     query: str
     top_k: int = 5
 
-class SearchResItem(BaseModel):
-    info: str
-    distance: float
 
 class RAGReq(SearchReq): pass
-
-
-# 디버깅용 출력 메세지
-print(f"벡터 DB에 등록된 총 데이터 수: {collection.count()}")
-print(f"CHROMA_DIR={settings.CHROMA_DIR}")
-print(f"COLLECTION_NAME={settings.COLLECTION_NAME}")
-
-
-# 엔드포인트 설정(로직 전개)
-@app.post("/search")
-def search(req: SearchReq):
-    hits = vectorstore.similarity_search(req.query, req.top_k)
-    return [{"info": h.page_content, "distance": h.metadata.get("distance")} for h in hits]
 
 @app.post("/rag_search")
 def rag_search(req: RAGReq):
     ctx = retriever.retrieve(req.query, req.top_k)
     answer = generator.generate_answer(ctx, req.query)
     return {"context": [d.page_content for d in ctx], "answer": answer}
-class MetaQueryReq(BaseModel):
-    product_id: str
 
-@app.post("/meta_lookup")
-def meta_lookup(req: MetaQueryReq):
-    meta = supp_index.get(str(req.product_id))
-    if not meta:
-        raise HTTPException(404, "해당 id의 영양제제가 없습니다.")
-    return {"metadata": meta}
+# 이후 최종적으로 추천된 영양제에 대한 기타 정보들 metadata에서 호출
+with open("app/data/vectorized_data.json", encoding="utf-8") as f:
+    vec_items = json.load(f)
+
+product_index = {
+    str(item["metadata"]["PRDLST_REPORT_NO"]): item["metadata"]
+    for item in vec_items
+}
+
+@app.get("/product/{product_id}")
+def get_product(product_id: str):
+    product = product_index.get(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="해당 제품이 없습니다.")
+    return {"product": product}

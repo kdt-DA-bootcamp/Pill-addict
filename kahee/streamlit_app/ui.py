@@ -222,7 +222,7 @@ elif st.session_state.page == "신체 부위 기반 추천":
         st.markdown(f"**매칭된 기능** : `{best_func}`")
         st.markdown("### AI 추천")
         if result and result.get("recommendation"):
-            st.write(result["recommendation"])
+            st.markdown(result["recommendation"], unsafe_allow_html=True)
         else:
             st.error("API 호출 실패 또는 빈 응답입니다.")
 

@@ -10,8 +10,7 @@ from app.rag.retriever import retrieve
 from app.rag.generator import generate_answer
 from app.sql_utils.matcher import get_most_similar_function
 from app.sql_utils.sql_utils import load_body_function_options, fetch_functions_by_body
-from app.config.metadata_loader import supp_index
-from app.config.chromadb_loader import vectorstore
+from langchain.schema import Document
 
 # 디버깅용 출력문
 print("bodypart 라우터 시작됨")
@@ -57,11 +56,10 @@ def match_function(data: BodyPartRequest):
 @router.post("/recommend")
 def recommend(data: BodyPartRequest):
     print("Enter recommend():", data.dict())  # 디버깅용 출력문
-
-    # 3-1. 기능 기반 성분 매핑
     with open("app/data/function_ingredient.json", encoding="utf-8") as f:
         fn_ing_map = json.load(f)
 
+    # 3-1. 기능 기반 성분 매핑
     raw_ing = next(
         (itm["ingredient"] for itm in fn_ing_map if itm["function"] == data.function),
         ""
@@ -83,51 +81,39 @@ def recommend(data: BodyPartRequest):
         raise HTTPException(404, f"'{data.function}'에 매핑된 성분 정보가 없습니다.")
 
     # 3-2. 매핑 필터링
-    def safe(v):
-        return str(v) if v else ""
+    with open("app/data/vectorized_data.json", encoding="utf-8") as f:
+        items = json.load(f)
 
-    matched: list[dict] = []
-    for meta in supp_index.values():
+    matched = []
+    for item in items:
+        meta = item["metadata"]
         combined = " ".join(
-            safe(meta.get(k)) for k in
-            ("RAWMTRL_NM", "INDIV_RAWMTRL_NM", "ETC_RAWMTRL_NM")
+            str(meta.get(k, "")) for k in ("RAWMTRL_NM", "INDIV_RAWMTRL_NM", "ETC_RAWMTRL_NM")
         )
         if any(ing in norm(combined) for ing in ingredients):
-            matched.append(meta)
+            matched.append(item)
 
     print("After mapping filter, matched:", len(matched))  # 디버깅용 출력문
 
-    # 3-3. 매핑된 성분이나 추천 성분에 해당하는 영양제 없을 경우 RAG활용, 벡터DB에서 직접 검색하도록 하는 로직 추가
+    # 3-3. 매핑된 성분이나 추천 성분에 해당하는 영양제 없을 경우 RAG 활용하여 추천하는 로직 추가
     if not matched:
-        print("No mapping hits → fallback similarity_search()")  # 디버깅용 출력문
-        docs_fb = vectorstore.similarity_search(
-            query=data.function,
-            k=5
-        )
-        matched = [d.metadata for d in docs_fb]
-        print("Fallback hit:", len(matched))   # 디버깅용 출력문
+        print("필터링된 제품이 없어 전체 데이터에서 RAG 수행")
+        docs = retrieve(data.function, k=5)
+    else:
+        from langchain.schema import Document
+        docs = [
+            Document(page_content=item["text"], metadata=item["metadata"])
+            for item in matched
+        ]
 
-    if not matched:
-        raise HTTPException(404, "추천할 영양제를 찾지 못했습니다.")
-
-    # 3-4. ID 리스트 추출
-    target_ids = [str(m["PRDLST_REPORT_NO"]) for m in matched]
 
     # 3-5. 추출된 ID 기반으로 최종 벡터DB 검색
-    docs = vectorstore.similarity_search(
-        query=data.function,
-        k=5,
-        filter={"PRDLST_REPORT_NO": {"$in": target_ids}}
-    )
+    from langchain.schema import Document
+    docs = retrieve(data.function, k=5)
 
-    if not docs:
-        raise HTTPException(404, "추천할 영양제 정보가 없습니다.")
-
-    # generate_answer 가 기대하는 형식으로 변환
+    # 3-6. generate_answer 가 기대하는 형식으로 변환 및 RAG 답변 생성
     answer = generate_answer(docs, data.function)
-
-    # 3-6. RAG 답변 생성
-    context_list = [d.metadata["PRIMARY_FNCLTY"] for d in docs]
+    context_list = [d.metadata.get("PRIMARY_FNCLTY", "") for d in docs]
 
     return {
     "recommendation": answer,
