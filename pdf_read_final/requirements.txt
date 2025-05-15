@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-pdfplumber
-pytesseract
-opencv-python
-Pillow
-python-dotenv
-numpy
