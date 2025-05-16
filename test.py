@@ -1,7 +1,18 @@
 import streamlit as st
+import time
+import random
+from streamlit_lottie import st_lottie
+import json
 
 st.set_page_config(layout="centered", page_title="건강 챗봇 UI")
 
+# --- Lottie JSON 가져오기 ---
+try:
+    with open("health_loading.json", "r", encoding="utf-8") as f:
+        lottie_health = json.load(f)
+except Exception:
+    lottie_health = None
+    
 # --- 세션 초기화 ---
 if "page" not in st.session_state:
     st.session_state.page = "intro"
@@ -22,56 +33,50 @@ body_part_examples = {
     "근육계": "관절, 근력, 뼈, 운동수행능력"
 }
 
-# --- 통일된 버튼 스타일 + 레이아웃 수정 ---
-st.markdown("""
-    <style>
-    html, body, [class*="css"] {
-        font-family: 'Segoe UI', sans-serif;
-        background-color: #111827;
-        color: #ffffff;
-    }
-
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-        max-width: 900px;
-        margin: auto;
-        background-color: #1f2937;
-        border-radius: 18px;
-        padding-left: 2rem;
-        padding-right: 2rem;
-        box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
-    }
-
-    div.stButton > button {
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        color: white;
-        padding: 14px 20px;
-        width: 100%;
-        max-width: 320px;
-        border: none;
-        border-radius: 14px;
-        font-size: 16px;
-        font-weight: bold;
-        margin: 10px auto;
-        display: block;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.3);
-        transition: all 0.2s ease-in-out;
-    }
-
-    div.stButton > button:hover {
-        background: linear-gradient(135deg, #7c3aed, #a78bfa);
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-    }
-
-    .stCaption {
-        color: #9ca3af;
-    }
-    </style>
+# --- 버튼 및 스타일 ---
+st.markdown("""<style>
+html, body, [class*="css"] {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #111827;
+    color: #ffffff;
+}
+.main .block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 900px;
+    margin: auto;
+    background-color: #1f2937;
+    border-radius: 18px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+}
+div.stButton > button {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    padding: 14px 20px;
+    width: 100%;
+    max-width: 320px;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    margin: 10px auto;
+    display: block;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    transition: all 0.2s ease-in-out;
+}
+div.stButton > button:hover {
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+.stCaption {
+    color: #9ca3af;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# --- 공통 버튼 렌더 함수 ---
 def render_uniform_button(label: str, target_page: str):
     col = st.columns([3, 3, 3])[1]
     with col:
@@ -80,11 +85,18 @@ def render_uniform_button(label: str, target_page: str):
             st.session_state.page = target_page
             st.rerun()
 
-# --- 메인 탭 버튼 묶음 ---
 def render_main_buttons():
     render_uniform_button("검진 기반 추천", "검진 기반 추천")
     render_uniform_button("신체 부위 기반 추천", "신체 부위 기반 추천")
     render_uniform_button("연령대 기반 추천", "연령대 기반 추천")
+
+loading_messages = [
+    "🧬 건강 데이터를 정밀 분석하는 중입니다...",
+    "🍃 당신의 건강을 위한 자연의 조합을 준비하고 있어요...",
+    "💊 당신의 몸에 꼭 맞는 영양소를 찾고 있어요...",
+    "☕ AI가 건강 상담 중입니다. 따뜻한 차 한 잔 어떠세요?",
+    "💪 맞춤 영양 루틴 생성 중입니다. 잠시만 기다려주세요!"
+]
 
 # --- 인트로 화면 ---
 if st.session_state.page == "intro":
@@ -98,7 +110,7 @@ if st.session_state.page == "intro":
     render_main_buttons()
     st.stop()
 
-# --- 사용자 기본정보 + 홈으로 버튼 (한 줄 정렬) ---
+# --- 사용자 기본정보 + 홈으로 버튼 ---
 col1, col2, col3 = st.columns([3, 3, 4])
 with col1:
     if st.button("사용자 기본정보"):
@@ -111,7 +123,7 @@ with col2:
             st.session_state.page = "intro"
             st.rerun()
 
-# --- 이전 버튼은 우측 정렬 (유지) ---
+# --- 이전 버튼 ---
 if st.session_state.page != "intro":
     col_a, col_b = st.columns([5, 1])
     with col_b:
@@ -122,7 +134,7 @@ if st.session_state.page != "intro":
                 st.session_state.page = "intro"
             st.rerun()
 
-# --- 중앙 카드 영역 시작 ---
+# --- 중앙 카드 시작 ---
 st.markdown("""
     <div style='
         max-width: 720px;
@@ -134,32 +146,46 @@ st.markdown("""
     '>
 """, unsafe_allow_html=True)
 
-# --- 콘텐츠 렌더링 ---
+# --- 페이지별 콘텐츠 ---
 if st.session_state.page == "검진 기반 추천":
     st.subheader("건강검진 기반 추천")
     uploaded_file = st.file_uploader("건강검진 결과 이미지 업로드", type=["jpg", "jpeg", "png", "pdf"])
     if uploaded_file:
-        st.info("이미지를 서버로 전송 중...")
+        with st.spinner(random.choice(loading_messages)):
+            if lottie_health:
+                st_lottie(lottie_health, height=160)
+            else:
+                st.warning("🔄 분석 중입니다... (애니메이션 로딩 실패)")
+            time.sleep(3)
+        st.success("✅ 분석 완료! 결과가 준비되었습니다.")
 
 elif st.session_state.page == "신체 부위 기반 추천":
     st.subheader("신체 부위 기반 건강 고민")
-    body_part = st.radio(
-        "신체 부위를 선택하세요",
-        list(body_part_examples.keys()),
-        horizontal=True
-    )
+    body_part = st.radio("신체 부위를 선택하세요", list(body_part_examples.keys()), horizontal=True)
     if body_part:
         st.session_state.selected_body_part = body_part
     default_text = body_part_examples.get(st.session_state.selected_body_part, "")
     user_input = st.text_area(f"{body_part} 관련 건강 고민을 입력하세요", value=default_text)
     if st.button("추천 요청"):
-        st.info(f"'{body_part}' 관련 건강 고민을 서버에 전송 중입니다...")
+        with st.spinner(random.choice(loading_messages)):
+            if lottie_health:
+                st_lottie(lottie_health, height=160)
+            else:
+                st.warning("🔄 추천 중입니다... (애니메이션 로딩 실패)")
+            time.sleep(3)
+        st.success(f"✅ '{body_part}' 관련 추천이 완료되었습니다!")
 
 elif st.session_state.page == "연령대 기반 추천":
     st.subheader("연령대 기반 추천")
     age_group = st.selectbox("연령대를 선택하세요", ["", "10대", "20대", "30대", "40대", "50대 이상"])
     if age_group:
-        st.info(f"{age_group} 연령대 정보가 전송됩니다...")
+        with st.spinner(random.choice(loading_messages)):
+            if lottie_health:
+                st_lottie(lottie_health, height=160)
+            else:
+                st.warning("🔄 추천 중입니다... (애니메이션 로딩 실패)")
+            time.sleep(3)
+        st.success(f"✅ {age_group} 연령대에 적합한 추천이 완료되었습니다!")
 
 elif st.session_state.page == "사용자 설정":
     st.subheader("건강 문진표 입력")
@@ -180,7 +206,7 @@ else:
     st.session_state.page = "intro"
     st.rerun()
 
-# --- 카드 종료 및 하단 ---
+# --- 카드 종료 ---
 st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("---")
 st.caption("ⓒ 2025 Pill-Addict 팀 · 영양제 추천 챗봇 \n실제 의료 상담은 전문가와 상담하세요.")
