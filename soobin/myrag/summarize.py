@@ -19,7 +19,7 @@ def summarize_text(long_text: str, openai_api_key: str, max_chars=300) -> str:
     # 요약 LLM
     llm = ChatOpenAI(
         openai_api_key=openai_api_key,
-        model_name="gpt-3.5-turbo",
+        model_name="gpt-4o",
         temperature=0.0,
     )
 

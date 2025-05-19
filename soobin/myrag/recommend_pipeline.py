@@ -156,7 +156,7 @@ def generate_natural_answer(
     llm = ChatOpenAI(
         openai_api_key=openai_api_key,
         model_name="gpt-4o",
-        temperature=0.3,
+        temperature=0.5,
     )
 
     sys_msg = SystemMessage(

@@ -1,18 +1,21 @@
-##  핵심 로직 ##
-
+# app/api/main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 
-# 설정 가져오기
-from app.config.settings import settings 
-from app.rag import retriever, generator
-from app.routers import bodypart
+from app.config.settings import settings
+from app.routers.bodypart import router as bodypart_router
+
+# === 수빈님 라우터 ===
+from soobin.myrag.recommend_api import router as soobin_router
+
+# === Faiss ===
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import OpenAIEmbeddings
 
 app = FastAPI(title=settings.API_TITLE)
 
-# CORS 설정: 브라우저가 로컬 아닌 다른 곳에 요청을 보낼 때 차단 방지 위해 필요
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.ALLOWED_ORIGINS],
@@ -21,34 +24,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(bodypart.router)
+faiss_db = None
 
-# 엔드포인트 설정(로직 전개: 기타 엔드포인트는 모두 삭제 or retriever로 넘김)
+@app.on_event("startup")
+def load_faiss():
+    global faiss_db
+    embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+    # soobin/myrag/faiss_index_msd/ <-- 수빈님 faiss_build_index.py 결과
+    faiss_db = FAISS.load_local(
+        "soobin/myrag/faiss_index_msd",
+        embeddings=embeddings,
+        allow_dangerous_deserialization=True
+    )
+    print("FAISS index loaded successfully")
+
+# === 가희님 라우터 등록 ===
+app.include_router(bodypart_router, prefix="/bodypart", tags=["BodyPart"])
+
+# === 수빈님 라우터 등록 ===
+app.include_router(soobin_router, prefix="/soobin", tags=["Soobin"])
+
+# === 가희님 RAG 예시 ===
 class SearchReq(BaseModel):
     query: str
     top_k: int = 5
 
-
-class RAGReq(SearchReq): pass
-
 @app.post("/rag_search")
-def rag_search(req: RAGReq):
-    ctx = retriever.retrieve(req.query, req.top_k)
-    answer = generator.generate_answer(ctx, req.query)
-    return {"context": [d.page_content for d in ctx], "answer": answer}
+def rag_search(req: SearchReq):
+    from app.rag import retriever, generator
+    docs = retriever.retrieve(req.query, req.top_k)
+    answer = generator.generate_answer(docs, req.query)
+    return {"context":[d.page_content for d in docs], "answer":answer}
 
-# 이후 최종적으로 추천된 영양제에 대한 기타 정보들 metadata에서 호출
+# === 예시 product/ID (가희님) ===
 with open("app/data/vectorized_data.json", encoding="utf-8") as f:
     vec_items = json.load(f)
 
 product_index = {
-    str(item["metadata"]["PRDLST_REPORT_NO"]): item["metadata"]
-    for item in vec_items
+    str(it["metadata"]["PRDLST_REPORT_NO"]): it["metadata"]
+    for it in vec_items
 }
 
 @app.get("/product/{product_id}")
 def get_product(product_id: str):
-    product = product_index.get(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="해당 제품이 없습니다.")
-    return {"product": product}
+    if product_id not in product_index:
+        raise HTTPException(404, "해당 제품 없음")
+    return {"product":product_index[product_id]}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.api.main:app", host="0.0.0.0", port=settings.APP_PORT, reload=True)

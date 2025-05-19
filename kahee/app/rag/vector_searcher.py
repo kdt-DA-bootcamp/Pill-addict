@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from pathlib import Path
 
 #미리 만들어둔 벡터파일 불러오기
-VEC_PATH = Path(r"app\data\vectorized_data.json")
+VEC_PATH = Path(r"app\data\sample_vectorized_data.json")
 with VEC_PATH.open(encoding="utf-8") as f:
     data = json.load(f)
 

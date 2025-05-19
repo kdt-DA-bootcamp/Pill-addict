@@ -1,4 +1,4 @@
-# pipeline.py
+# medical_checkup/pipeline.py
 
 import io
 import re
