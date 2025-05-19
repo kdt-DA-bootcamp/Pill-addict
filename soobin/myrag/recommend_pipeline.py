@@ -3,6 +3,7 @@ recommend_pipeline.py
 
 - 성분(ingredients)을 최대 3개까지만 사용
 - search_side_effects()에서 RAG 문서를 최대 300자로 잘라서 LLM에 넘김
+- Chroma -> Faiss로 변경
 """
 
 from __future__ import annotations
@@ -11,9 +12,11 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-BASE_DIR    = Path(__file__).resolve().parent.parent  # .../soobin
+# 🏷️ 경로 설정
+BASE_DIR    = Path(__file__).resolve().parent.parent  # 예: .../soobin
 DATA_DIR    = BASE_DIR / "ragdata"
-PERSIST_DIR = BASE_DIR / "msd_chroma_db"
+# 🔔 Faiss 인덱스 폴더 경로 (이전 persist_dir=Chroma 대체)
+FAISS_INDEX_DIR = BASE_DIR / "faiss_index_msd"
 
 def load_json(path: Path):
     if not path.exists():
@@ -26,24 +29,34 @@ _body_function       = load_json(DATA_DIR / "body_function.json")
 _supplement_data     = load_json(DATA_DIR / "supplement.json")
 
 
+# ─────────────────────────────────────────────────────────────────
+# 🏷️ Faiss 기반 RAG 검색 클래스
+# ─────────────────────────────────────────────────────────────────
 class MsdRagSearch:
-    """Chroma(벡터 DB) + OpenAI Embeddings"""
-    def __init__(self, openai_api_key: str, persist_dir: Path = PERSIST_DIR):
-        from langchain_openai import OpenAIEmbeddings
-        from langchain_community.vectorstores import Chroma
+    """Faiss(벡터 DB) + OpenAI Embeddings"""
 
-        emb = OpenAIEmbeddings(openai_api_key=openai_api_key)
-        self.db = Chroma(
-            persist_directory=str(persist_dir),
-            embedding_function=emb,
+    def __init__(self, openai_api_key: str, index_dir: Path = FAISS_INDEX_DIR):
+        from langchain_openai import OpenAIEmbeddings
+        from langchain_community.vectorstores import FAISS
+
+        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+        # 🔔 Faiss 인덱스 로드
+        self.db = FAISS.load_local(
+            folder_path=str(index_dir),
+            embeddings=embeddings,
+            allow_dangerous_deserialization=True
         )
 
     def search_side_effects(self, ingredient: str, k: int = 1) -> List[str]:
+        """
+        ingredient 키워드 → similarity_search
+        최대 k개 문서, 각 문서는 300자까지 슬라이스
+        """
         docs = self.db.similarity_search(ingredient, k=k)
         if not docs:
             return ["추가 정보 없음"]
-        # ────────── (A) 최대 300자 슬라이스 ──────────
-        # 필요시 300 → 200, 100 등으로 더 줄여도 됨
+
+        # ── 최대 300자 슬라이스 ──
         results = []
         for d in docs:
             snippet = d.page_content[:300].strip() + "…"
@@ -51,7 +64,9 @@ class MsdRagSearch:
         return results
 
 
-# ───── 파싱 함수 ─────
+# ─────────────────────────────────────────────────────────────────
+# 🏷️ 파싱 함수들
+# ─────────────────────────────────────────────────────────────────
 def parse_exam_info(text: Optional[str]) -> List[str]:
     if not text:
         return []
@@ -103,7 +118,10 @@ def get_supplements(ingredients: List[str]) -> List[Dict]:
             results.append(sup)
     return results
 
-# ───── 메인 파이프라인 ─────
+
+# ─────────────────────────────────────────────────────────────────
+# 🏷️ 메인 파이프라인
+# ─────────────────────────────────────────────────────────────────
 def process_recommendation(
     *,
     exam_info: Optional[str],
@@ -111,6 +129,7 @@ def process_recommendation(
     symptom: Optional[str],
     openai_api_key: str,
 ) -> Dict:
+    # 1) parse exam_info/body_part/symptom -> 기능
     funcs = set(
         parse_exam_info(exam_info)
         + parse_body_function(body_part)
@@ -119,23 +138,25 @@ def process_recommendation(
     if not funcs:
         funcs = {"기능 없음"}
 
+    # 2) 기능 -> 성분
     ingredients = get_ingredients(list(funcs)) or ["성분 없음"]
-
     if "성분 없음" not in ingredients:
-        # ────────── (B) 성분 최대 3개 제한 ──────────
+        # 최대 3개 제한
         ingredients = ingredients[:3]
 
+    # 3) MSD 부작용 RAG (Faiss)
     msd_info: Dict[str, List[str]] = {}
     if "성분 없음" not in ingredients:
         rag = MsdRagSearch(openai_api_key)
         for ing in ingredients:
-            # k=1, 그리고 search_side_effects()에서 300자 제한
             msd_info[ing] = rag.search_side_effects(ing, k=1)
 
+    # 4) 보충제 제품
     supplements = []
     if "성분 없음" not in ingredients:
         supplements = get_supplements(ingredients)
 
+    # 5) 결과 반환
     return {
         "기능": list(funcs),
         "성분": ingredients,
@@ -143,12 +164,19 @@ def process_recommendation(
         "제품": supplements or "없음",
     }
 
-# ───── LLM 자연어 생성 ─────
+
+# ─────────────────────────────────────────────────────────────────
+# 🏷️ LLM 자연어 생성
+# ─────────────────────────────────────────────────────────────────
 def generate_natural_answer(
     data: Dict,
     openai_api_key: str,
     user_input: str
 ) -> str:
+    """
+    data: process_recommendation() 결과 JSON
+    user_input: 사용자 원문
+    """
     from langchain_openai import ChatOpenAI
     from langchain.schema import SystemMessage, HumanMessage
     import json
