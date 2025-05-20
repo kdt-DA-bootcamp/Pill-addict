@@ -1,10 +1,12 @@
+
+#pill-addict/kahee/app/sql_utils/matcher.py
 ## LLM 프롬프트 
 #추후 구체화 필요
 
 # 라이브러리 및 설정 가져오기
 from typing import List, Optional
 from openai import OpenAI
-from app.config.settings import settings
+from kahee.app.config.settings import settings
 
 # LLM 호출 및 프롬프트
 _llm = OpenAI(api_key=settings.OPENAI_API_KEY)

@@ -1,4 +1,4 @@
-# app/config/settings.py
+# pill-addict/kahee/app/config/settings.py
 from dotenv import load_dotenv
 import os
 from pydantic_settings import BaseSettings
@@ -7,8 +7,10 @@ from pathlib import Path
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parents[1]
+BASE_DIR = Path(__file__).resolve().parents[1]  # == pill-addict/kahee/app
+
 DATA_DIR = BASE_DIR / "data"
+
 
 class Settings(BaseSettings):
     API_TITLE: str = "RAG Server"

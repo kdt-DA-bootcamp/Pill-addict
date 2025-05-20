@@ -1,5 +1,7 @@
+
+
 """
-recommend_pipeline.py
+# pill-addict/soobin/myrag/recommend_pipeline.py
 
 - 성분(ingredients)을 최대 3개까지만 사용
 - search_side_effects()에서 RAG 문서를 최대 300자로 잘라서 LLM에 넘김

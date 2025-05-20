@@ -1,4 +1,4 @@
-#medical_checkup/run_pipeline.py
+#pill-addict/medical_checkup/run_pipeline.py
 import json
 import pandas as pd
 import config            # 경로·모델·API 키 등

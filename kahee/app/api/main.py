@@ -1,11 +1,20 @@
-# app/api/main.py
+# pill-addict/kahee/app/api/main.py
+
+
+#===.env===
+import os
+from dotenv import load_dotenv
+# 📌 .env 파일 로딩 (가장 먼저 호출)
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 
-from app.config.settings import settings
-from app.routers.bodypart import router as bodypart_router
+# ===== [수정 1] kahee.app 경로로 변경 =====
+from kahee.app.config.settings import settings
+from kahee.app.routers.bodypart import router as bodypart_router
 
 # === 수빈님 라우터 ===
 from soobin.myrag.recommend_api import router as soobin_router
@@ -13,6 +22,10 @@ from soobin.myrag.recommend_api import router as soobin_router
 # === Faiss ===
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import OpenAIEmbeddings
+
+
+
+
 
 app = FastAPI(title=settings.API_TITLE)
 
@@ -44,20 +57,22 @@ app.include_router(bodypart_router, prefix="/bodypart", tags=["BodyPart"])
 # === 수빈님 라우터 등록 ===
 app.include_router(soobin_router, prefix="/soobin", tags=["Soobin"])
 
-# === 가희님 RAG 예시 ===
+# === [수정 2] RAG 관련 import 경로 변경 (kahee.app.rag) ===
 class SearchReq(BaseModel):
     query: str
     top_k: int = 5
 
 @app.post("/rag_search")
 def rag_search(req: SearchReq):
-    from app.rag import retriever, generator
+    from kahee.app.rag import retriever, generator  # 수정
     docs = retriever.retrieve(req.query, req.top_k)
     answer = generator.generate_answer(docs, req.query)
-    return {"context":[d.page_content for d in docs], "answer":answer}
+    return {"context": [d.page_content for d in docs], "answer": answer}
 
 # === 예시 product/ID (가희님) ===
-with open("app/data/vectorized_data.json", encoding="utf-8") as f:
+# === [수정 3] 파일 열기 경로도 "kahee/app/data/" 로 변경 === 
+# =========⭐파일 이름 수정필요⭐=====================
+with open("kahee/app/data/sample_vectorized_data.json", encoding="utf-8") as f:
     vec_items = json.load(f)
 
 product_index = {
@@ -69,8 +84,14 @@ product_index = {
 def get_product(product_id: str):
     if product_id not in product_index:
         raise HTTPException(404, "해당 제품 없음")
-    return {"product":product_index[product_id]}
+    return {"product": product_index[product_id]}
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.api.main:app", host="0.0.0.0", port=settings.APP_PORT, reload=True)
+    uvicorn.run(
+        "kahee.app.api.main:app",
+        host="0.0.0.0",
+        port=settings.APP_PORT,
+        reload=True
+    )

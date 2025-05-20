@@ -1,4 +1,4 @@
-# (새) app/rag/retriever.py
+#pill-addict/kahee/app/rag/retriever.py
 """
 변경 사항
 1. 임베딩 모델:
@@ -19,7 +19,7 @@ FastAPI 멀티스레드 시 환경에서 캐시 동시 접근 문제 방지"""
 
 import threading
 from langchain.schema import Document
-from app.rag.vector_searcher import search_vector
+from kahee.app.rag.vector_searcher import search_vector
 from langchain_openai import OpenAIEmbeddings
 
 # 전역 임베딩 모델 (model="text-embedding-3-small")

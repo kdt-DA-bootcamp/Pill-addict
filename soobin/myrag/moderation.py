@@ -1,4 +1,4 @@
-# 🔏 moderation.py
+#pill-addict/soobin/myrag/moderation.py
 """
 🔒 OpenAI Moderation API를 통해
 사용자 입력(비속어/혐오 표현 등)을 사전 검열하는 모듈

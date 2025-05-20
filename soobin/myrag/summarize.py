@@ -1,4 +1,4 @@
-# soobin/myrag/summarize.py
+# pill-addict/soobin/myrag/summarize.py
 # (새로 추가한 파일 예시)
 
 from langchain_openai import ChatOpenAI

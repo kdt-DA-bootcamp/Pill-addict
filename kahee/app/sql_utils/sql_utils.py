@@ -1,9 +1,11 @@
+
+# kahee/app/sql_utils/sql_utils.py
 ## 메타데이터 파일 필터링용 SQL 로직 정리  
 
 # 라이브러리 및 설정 가져오기
 import json
-from app.config.settings import settings
-from app.config.settings import BASE_DIR
+from kahee.app.config.settings import settings
+from kahee.app.config.settings import BASE_DIR
 
 # 주요 로직
 def load_body_function_options() -> list[dict]:

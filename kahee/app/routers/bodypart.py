@@ -1,9 +1,9 @@
-# app/routers/bodypart.py
+# pill-addict/kahee/app/routers/bodypart.py
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.sql_utils.sql_utils import fetch_functions_by_body
-from app.sql_utils.matcher import get_most_similar_function
-from app.rag import retriever, generator
+from kahee.app.sql_utils.sql_utils import fetch_functions_by_body
+from kahee.app.sql_utils.matcher import get_most_similar_function
+from kahee.app.rag import retriever, generator
 
 router = APIRouter()
 

@@ -1,4 +1,4 @@
-# medical_checkup/pipeline.py
+# pill-addict/medical_checkup/pipeline.py
 
 import io
 import re
