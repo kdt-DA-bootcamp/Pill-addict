@@ -1,8 +1,6 @@
 
-
-"""
 # pill-addict/soobin/myrag/recommend_pipeline.py
-
+"""
 - 성분(ingredients)을 최대 3개까지만 사용
 - search_side_effects()에서 RAG 문서를 최대 300자로 잘라서 LLM에 넘김
 - Chroma -> Faiss로 변경
@@ -15,10 +13,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 # 🏷️ 경로 설정
-BASE_DIR    = Path(__file__).resolve().parent.parent  # 예: .../soobin
+
+BASE_DIR    = Path(__file__).resolve().parent # 예: .../soobin
 DATA_DIR    = BASE_DIR / "ragdata"
 # 🔔 Faiss 인덱스 폴더 경로 (이전 persist_dir=Chroma 대체)
 FAISS_INDEX_DIR = BASE_DIR / "faiss_index_msd"
+
+print(FAISS_INDEX_DIR) 
 
 def load_json(path: Path):
     if not path.exists():

@@ -1,10 +1,9 @@
-# pill-addict/soobin/myrag/streamlit_app.py
-
 import streamlit as st
 import time
 import random
 from streamlit_lottie import st_lottie
 import json
+import requests
 
 st.set_page_config(layout="centered", page_title="건강 챗봇 UI")
 
@@ -159,34 +158,10 @@ st.markdown(
 )
 
 # =============================================================================
-# 📌 여기가 실제 페이지별 로직
+# 📌 페이지별 로직
 # =============================================================================
 
-if st.session_state.page == "검진 기반 추천":
-    st.subheader("건강검진 기반 추천")
-    uploaded_file = st.file_uploader("건강검진 결과 이미지 업로드", type=["jpg", "jpeg", "png", "pdf"])
-    if uploaded_file:
-        with st.spinner(random.choice(loading_messages)):
-            if lottie_health:
-                st_lottie(lottie_health, height=160)
-            else:
-                st.warning("🔄 분석 중입니다... (애니메이션 로딩 실패)")
-            time.sleep(3)
-
-        # 🚩 TODO: 여기에 FastAPI의 "medical_checkup" 파이프라인을 호출 (OCR & 이상치 분석)
-        #    1) 파일 bytes를 서버로 보내거나,
-        #    2) streamlit에서 pipeline 함수를 직접 호출
-        #    예: 
-        #        response = requests.post("http://localhost:8000/medical_checkup/ocr", files={"file": uploaded_file})
-        #        or
-        #        exam_dict, text = pipeline.parse_health_exam(uploaded_file.getvalue(), "pdf" or "image")
-        #
-        # 🚩 TODO: 분석 결과를 RAG/LLM과 연동해서 최종 요약 or 영양제 추천
-
-        st.success("✅ 분석 완료! 결과가 준비되었습니다.")
-
-
-elif st.session_state.page == "신체 부위 기반 추천":
+if st.session_state.page == "신체 부위 기반 추천":
     st.subheader("신체 부위 기반 건강 고민")
     body_part = st.radio("신체 부위를 선택하세요", list(body_part_examples.keys()), horizontal=True)
     if body_part:
@@ -200,22 +175,49 @@ elif st.session_state.page == "신체 부위 기반 추천":
                 st_lottie(lottie_health, height=160)
             else:
                 st.warning("🔄 추천 중입니다... (애니메이션 로딩 실패)")
+            time.sleep(1.5)
+
+        # 📌 FastAPI 추천 API 연결
+        try:
+            payload = {
+                "exam_info": None,
+                "body_part": body_part,
+                "symptom": user_input
+            }
+            # --- 실제 운영 주소로 바꿔주세요! ---
+            API_URL = "http://localhost:8000/soobin/recommend"
+            res = requests.post(API_URL, json=payload, timeout=30)
+            if res.status_code == 200:
+                data = res.json()
+                st.write("🔎 [API 응답 결과]", data)  # 원본 응답 확인용
+
+                # 결과 렌더링 예시
+                answer = data.get("recommendation") or data.get("answer") or data.get("pipeline_data")
+                if answer:
+                    if isinstance(answer, dict) or isinstance(answer, list):
+                        st.json(answer)
+                    else:
+                        st.markdown(str(answer))
+                else:
+                    st.error("추천 결과가 비어 있습니다. (answer/pipeline_data 없음)")
+            else:
+                st.error(f"서버 에러: {res.status_code} {res.text}")
+        except Exception as e:
+            st.error(f"API 연결 실패: {e}")
+
+elif st.session_state.page == "검진 기반 추천":
+    st.subheader("건강검진 기반 추천")
+    uploaded_file = st.file_uploader("건강검진 결과 이미지 업로드", type=["jpg", "jpeg", "png", "pdf"])
+    if uploaded_file:
+        with st.spinner(random.choice(loading_messages)):
+            if lottie_health:
+                st_lottie(lottie_health, height=160)
+            else:
+                st.warning("🔄 분석 중입니다... (애니메이션 로딩 실패)")
             time.sleep(3)
+        # 🚩 여기도 API 연동 필요
 
-        # 🚩 TODO: 여기에 FastAPI "/bodypart/recommend" 혹은 "/soobin/recommend" 호출
-        #    예:
-        #        payload = {"exam_info": None, "body_part": body_part, "symptom": user_input}
-        #        res = requests.post("http://localhost:8000/soobin/recommend", json=payload)
-        #        if res.status_code == 200:
-        #            data = res.json()
-        #            st.json(data)
-        #        else:
-        #            st.error("서버 에러: " + res.text)
-        #
-        # 🚩 TODO: 응답 결과(추천 성분/영양제 등)를 화면에 표시
-
-        st.success(f"✅ '{body_part}' 관련 추천이 완료되었습니다!")
-
+        st.success("✅ 분석 완료! 결과가 준비되었습니다.")
 
 elif st.session_state.page == "연령대 기반 추천":
     st.subheader("연령대 기반 추천")
@@ -226,13 +228,10 @@ elif st.session_state.page == "연령대 기반 추천":
                 st_lottie(lottie_health, height=160)
             else:
                 st.warning("🔄 추천 중입니다... (애니메이션 로딩 실패)")
-            time.sleep(3)
-
-        # 🚩 TODO: 연령대 정보(age_group)에 맞춰 FastAPI "/age-recommend" 등 호출하거나
-        #          LLM prompting으로 "30대에 적합한..." 등 수행
+            time.sleep(2)
+        # 🚩 여기도 API 연동 필요
 
         st.success(f"✅ {age_group} 연령대에 적합한 추천이 완료되었습니다!")
-
 
 elif st.session_state.page == "사용자 설정":
     st.subheader("건강 문진표 입력")
@@ -248,7 +247,6 @@ elif st.session_state.page == "사용자 설정":
     st.slider("하루 평균 수면 시간 (시간)", 0, 12, 7)
     if st.button("저장"):
         # 🚩 TODO: 문진표 정보(이름, 성별 등)를 서버에 전송, DB 저장 or 세션에 유지
-        #          예: requests.post("http://localhost:8000/userinfo", json=user_data)
         st.success("✅ 건강 문진표가 저장되었습니다!")
 
 else:

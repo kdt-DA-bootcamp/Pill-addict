@@ -1,9 +1,9 @@
-fastapi
-uvicorn
-streamlit
-langchain==0.0.0  # (버전 예) or langchain_community, langchain_openai
-langchain-openai
-langchain-community
-pydantic
-requests
-python-dotenv
+fastapi==0.95.0
+langchain_community==0.0.4
+openai==0.27.0
+python-dotenv==0.21.0
+requests==2.28.1
+pydantic==1.10.7
+numpy==1.24.2
+scikit-learn==1.2.2
+uvicorn==0.22.0
