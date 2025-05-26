@@ -1,0 +1,24 @@
+########################################
+# ▶ FastAPI 서버 & 설정
+########################################
+fastapi==0.110.0          # Pydantic-2 지원 첫 LTS
+pydantic==2.7.1
+pydantic-settings==2.6.1  # Pydantic-2 계열
+uvicorn[standard]==0.29.0 # h11·watchfiles·websockets 포함
+
+########################################
+# ▶ OpenAI / LangChain 스택
+########################################
+openai==1.23.6
+langchain==0.1.20
+langchain-openai==0.1.6   # openai 1.23.x와 호환
+tiktoken<1                # 최신 0.9.x wheel 사용
+
+########################################
+# ▶ 데이터·과학 / 유틸
+########################################
+numpy==1.26.4
+scikit-learn==1.6.1
+PyYAML==6.0.2             # wheel 존재 → Cython 빌드 無
+python-dotenv==1.0.1
+typing-extensions>=4.5
