@@ -6,7 +6,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 class MsdRagSearch:
-    def __init__(self, openai_api_key: str, index_dir: str = R"C:\faiss_index_msd"):
+    def __init__(self, openai_api_key: str, index_dir: str = "app/data/faiss_index_msd"):
         embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
         self.db = FAISS.load_local(
             folder_path=index_dir,
@@ -16,9 +16,4 @@ class MsdRagSearch:
 
     def search_side_effects(self, ingredient: str, k: int = 1) -> List[str]:
         docs = self.db.similarity_search(ingredient, k=k)
-        snippets = [d.page_content[:300].strip() + "…" for d in docs] if docs else ["추가 정보 없음"]
-
-    # MSD_RAG 실행 확인용
-        print(f"[MSD] {ingredient} → {snippets}")
-
-        return snippets
+        return [d.page_content[:300].strip() + "…" for d in docs] if docs else ["추가 정보 없음"]

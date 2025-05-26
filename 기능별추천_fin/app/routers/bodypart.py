@@ -13,6 +13,7 @@ from app.sql_utils.sql_utils import load_body_function_options, fetch_functions_
 from langchain.schema import Document
 from app.rag.msd_rag import MsdRagSearch
 from langchain.schema import Document
+from app.config.settings import settings
 
 # 디버깅용 출력문
 print("bodypart 라우터 시작됨")
@@ -130,6 +131,7 @@ def recommend(data: BodyPartRequest):
     return {
     "recommendation": answer,
     "context": context_list,
+    "msd_info": msd_docs,
     "matched_supplements": [
         {
             "product_id":  d.metadata["PRDLST_REPORT_NO"],

@@ -5,10 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 
+
 # 설정 가져오기
 from app.config.settings import settings 
 from app.rag import retriever, generator
 from app.routers import bodypart
+from app.routers import recommend
 
 app = FastAPI(title=settings.API_TITLE)
 
@@ -22,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(bodypart.router)
+app.include_router(recommend.router)
 
 # 엔드포인트 설정(로직 전개: 기타 엔드포인트는 모두 삭제 or retriever로 넘김)
 class SearchReq(BaseModel):
