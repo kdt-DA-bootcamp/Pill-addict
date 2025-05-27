@@ -1,4 +1,4 @@
-# pill-addict/medical_checkup/pipeline.py
+# pipeline.py
 
 import io
 import re
@@ -65,7 +65,7 @@ def generate_openai_response(user_name: str, structured_data: dict) -> str:
             model=config.MODEL_NAME,  # config 파일에 정의된 모델 이름 사용
             messages=messages_for_api,
             max_tokens=2000,  # 응답 길이는 필요에 따라 조절
-            temperature=0.7   # 창의성과 일관성 조절 (0.0 ~ 2.0)
+            temperature=0.5   # 창의성과 일관성 조절 (0.0 ~ 2.0)
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -86,7 +86,7 @@ def parse_health_exam(file_bytes: bytes, file_type: str) -> tuple[dict,str]:
         text = pytesseract.image_to_string(img, lang="kor+eng") # tesseract OCR 사용
 
     patterns = {
-        "혈색소":    r"혈색소[^0-9]*?(\d+\.?\d*)", # 검사명과 숫자 사이 다른 문자 허용
+        "혈색소": r"혈색소\\s*\\(g/dL\\)?[^0-9]*(\\d+\\.\\d+)", # 검사명과 숫자 사이 다른 문자 허용
         "공복혈당":  r"공복혈당[^0-9]*?(\d+\.?\d*)",
         "BMI":      r"(?:BMI|체질량지수)[^0-9]*?(\d+\.?\d*)",
         "허리둘레":  r"허리둘레[^0-9]*?(\d+\.?\d*)",

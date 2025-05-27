@@ -1,4 +1,3 @@
-#pill-addict/medical_checkup/config
 import os
 from dotenv import load_dotenv
 load_dotenv()
