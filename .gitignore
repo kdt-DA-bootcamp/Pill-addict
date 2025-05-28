@@ -189,3 +189,4 @@ pdf_read/__pycache__/
 .DS_Store
 parsed_results.json
 .pem
+kahee/app/data/vectorized_data.json

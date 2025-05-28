@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
+from pathlib import Path
+import pickle
 
 
 # 설정 가져오기
@@ -41,13 +43,13 @@ def rag_search(req: RAGReq):
     return {"context": [d.page_content for d in ctx], "answer": answer}
 
 # 이후 최종적으로 추천된 영양제에 대한 기타 정보들 metadata에서 호출
-with open("app/data/vectorized_data.json", encoding="utf-8") as f:
-    vec_items = json.load(f)
+IDX_DIR = Path("app/data/faiss_index_supplement")
+META_PKL = IDX_DIR / "index.pkl"
 
-product_index = {
-    str(item["metadata"]["PRDLST_REPORT_NO"]): item["metadata"]
-    for item in vec_items
-}
+with META_PKL.open("rb") as f:
+    meta_list: list[dict] = pickle.load(f)
+
+product_index = {str(m["id"]): m for m in meta_list}
 
 @app.get("/product/{product_id}")
 def get_product(product_id: str):

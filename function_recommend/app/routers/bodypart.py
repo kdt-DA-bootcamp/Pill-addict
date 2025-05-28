@@ -134,10 +134,10 @@ def recommend(data: BodyPartRequest):
     "msd_info": msd_docs,
     "matched_supplements": [
         {
-            "product_id":  d.metadata["PRDLST_REPORT_NO"],
-            "product_name": d.metadata.get("PRDLST_NM"),
-            "primary_function": d.metadata.get("PRIMARY_FNCLTY"),
-            "caution": d.metadata.get("IFTKN_ATNT_MATR_CN"),
+            "product_id":  d.metadata["id"],
+            "product_name": d.metadata.get("name"),
+            "primary_function": d.metadata.get("function"),
+            "caution": d.metadata.get("text"),
         }
         for d in docs
     ],
