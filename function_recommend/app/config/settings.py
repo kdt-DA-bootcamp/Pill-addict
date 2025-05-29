@@ -4,7 +4,8 @@
 
 from dotenv import load_dotenv
 import os
-from pydantic import BaseSettings, AnyHttpUrl
+from pydantic_settings import BaseSettings
+from pydantic import AnyHttpUrl
 from pathlib import Path
 
 # .env 파일 로드
