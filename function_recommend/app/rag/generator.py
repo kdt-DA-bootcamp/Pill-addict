@@ -7,10 +7,11 @@ from openai import OpenAI
 from langchain_openai import ChatOpenAI
 from langchain.schema import Document
 import time
+import os
 
 
 # 프롬프트 작성
-_llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2)
+_llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2, openai_api_key=os.getenv("OPENAI_API_KEY"))
 RATE_LIMIT_DELAY = 2.0 
 #--- 0529 수정부분---------------------#
 PROMPT = """당신은 관절, 뼈, 근육, 뇌, 소화계 등의 증상에 따라 적절한 건강기능식품을 추천하는 영양제 전문가입니다.
