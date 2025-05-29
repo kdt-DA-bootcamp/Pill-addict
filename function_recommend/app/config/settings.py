@@ -8,12 +8,11 @@ from pydantic import BaseSettings, AnyHttpUrl
 from pathlib import Path
 
 # .env 파일 로드
-env_path = Path(__file__).resolve().parents[1] / ".env"
-load_dotenv(dotenv_path=env_path)
+BASE_DIR = Path(__file__).resolve().parents[2]
+ENV_PATH = BASE_DIR / ".env"
 
-# 기본 경로 설정
-BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = BASE_DIR / "data"
+print("📌 .env 경로 확인:", ENV_PATH)
+load_dotenv(dotenv_path=ENV_PATH)
 
 class Settings(BaseSettings):
     # FastAPI 관련 설정
