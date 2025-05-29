@@ -352,7 +352,7 @@ elif st.session_state.page == "사용자 설정":
     API_BASE = "http://127.0.0.1:8000"
     TIMEOUT = 90
     name = st.text_input("이름", key="username_basic")
-    gneder = st.radio("성별", ["남성", "여성"], horizontal=True, key="gender_basic")
+    gender = st.radio("성별", ["남성", "여성"], horizontal=True, key="gender_basic")
     birth = st.date_input(
                         "생년월일",
                         value=datetime.date(1990, 1, 1),  # 기본 생년월일 초기값
