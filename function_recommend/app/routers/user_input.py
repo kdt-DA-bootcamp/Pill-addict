@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import date
 
-router = APIRouter(prefix="/user", tags=["User"])
+
+router = APIRouter(tags=["User"])
 
 
 class HealthSurvey(BaseModel):
@@ -22,14 +23,8 @@ class HealthSurvey(BaseModel):
     average_sleep_hours: Optional[int] = Field(ge=0, le=24)
 
 
-@router.post("/survey")
+@router.post("/user/survey")
 def submit_survey(data: HealthSurvey):
-    """
-    사용자가 작성한 건강 문진표(HealthSurvey)를 수신합니다.
-    이후 추천 로직에서 data.* 로 접근 가능해집니다.
-    """
-    # 예시: 입력값 로그
-    print("Received survey:", data.json(ensure_ascii=False))
-    # TODO: 세션에 저장하거나 DB에 기록
+    print("Received survey:", data.json())
     return {"status": "ok", "received": data.dict()}
 
