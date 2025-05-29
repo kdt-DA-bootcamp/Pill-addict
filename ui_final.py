@@ -4,6 +4,7 @@ import pandas as pd
 from streamlit_lottie import st_lottie
 import requests
 from requests.exceptions import RequestException
+import datetime
 
 # ────── 📦 PILL-ADDICT PIPELINE ──────────────────────────────
 # 같은 프로젝트 폴더 안에 있는 pipeline.py 를 그대로 import
@@ -352,7 +353,12 @@ elif st.session_state.page == "사용자 설정":
     TIMEOUT = 90
     name = st.text_input("이름", key="username_basic")
     gneder = st.radio("성별", ["남성", "여성"], horizontal=True, key="gender_basic")
-    birth = st.date_input("생년월일", key="birth_basic")
+    birth = st.date_input(
+                        "생년월일",
+                        value=datetime.date(1990, 1, 1),  # 기본 생년월일 초기값
+                        min_value=datetime.date(1950, 1, 1),
+                        max_value=datetime.date(2015, 1, 1),
+                        key="birth_basic")
     family = st.multiselect("가족력", ["고혈압", "당뇨병", "심장병", "암", "기타"], key="family_basic")
     past = st.multiselect("과거 병력", ["간염", "천식", "고지혈증", "우울증", "기타"], key="past_basic")
     allergy = st.multiselect("알러지", ["계란", "우유", "갑각류", "약물", "기타"], key="allergy_basic")
