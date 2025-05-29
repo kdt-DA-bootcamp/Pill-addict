@@ -1,18 +1,10 @@
 import streamlit as st
 import time
 import random
-from streamlit_lottie import st_lottie
 import json
 import requests
 
 st.set_page_config(layout="centered", page_title="건강 챗봇 UI")
-
-# --- Lottie JSON 가져오기 ---
-try:
-    with open("health_loading.json", "r", encoding="utf-8") as f:
-        lottie_health = json.load(f)
-except Exception:
-    lottie_health = None
 
 # --- 세션 스테이트 초기화 ---
 if "page" not in st.session_state:
@@ -34,7 +26,10 @@ body_part_examples = {
     "근육계": "관절, 근력, 뼈, 운동수행능력"
 }
 
-# --- 색상 커스터마이징 스타일 (빨간색, 흰색, 노란색 계열) ---
+
+
+
+# --- 색상 커스터마이징 스타일 ---
 st.markdown(
     """
     <style>
@@ -170,12 +165,9 @@ if st.session_state.page == "신체 부위 기반 추천":
     user_input = st.text_area(f"{body_part} 관련 건강 고민을 입력하세요", value=default_text)
 
     if st.button("추천 요청"):
-        with st.spinner(random.choice(loading_messages)):
-            if lottie_health:
-                st_lottie(lottie_health, height=160)
-            else:
-                st.warning("🔄 추천 중입니다... (애니메이션 로딩 실패)")
-            time.sleep(1.5)
+     with st.spinner("💪 맞춤 영양 루틴 생성 중입니다. 잠시만 기다려주세요!"):
+        
+        time.sleep(1.5)
 
         try:
             payload = {
@@ -206,10 +198,7 @@ elif st.session_state.page == "검진 기반 추천":
     uploaded_file = st.file_uploader("건강검진 결과 이미지 업로드", type=["jpg", "jpeg", "png", "pdf"])
     if uploaded_file:
         with st.spinner(random.choice(loading_messages)):
-            if lottie_health:
-                st_lottie(lottie_health, height=160)
-            else:
-                st.warning("🔄 분석 중입니다... (애니메이션 로딩 실패)")
+            
             time.sleep(3)
         st.success("분석 완료! 결과가 준비되었습니다.")
 
@@ -269,6 +258,70 @@ elif st.session_state.page == "연령대 기반 추천":
     }
 
     if age_group and age_group in age_table_data:
+        st.markdown("""
+<style>
+html, body, [class*="css"] {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #fff8f0;
+}
+.main .block-container {
+  padding: 2rem;
+  max-width: 900px;
+  margin: auto;
+  background: #fffefb;
+  border-radius: 18px;
+  box-shadow: 0 0 10px rgba(255,215,0,0.1);
+}
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600&display=swap');
+.stMarkdown table {
+  table-layout: auto;
+  width: 90%;
+  max-width: 800px;
+  margin: 0 auto 1.5rem;
+  border-collapse: collapse;
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+}
+.stMarkdown thead th {
+  background: linear-gradient(135deg,#ff6b6b,#ffd93d);
+  color: white;
+  padding: 12px 16px;
+  text-align: left;
+}
+.stMarkdown tbody td {
+  padding: 8px 12px;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  text-align: left;
+}
+.stMarkdown tbody tr:nth-child(even) {
+  background: #fff8f0;
+}
+.stMarkdown tbody tr:hover {
+  background: #fff1e6;
+}
+.stMarkdown thead th:first-child {
+  border-top-left-radius: 10px;
+}
+.stMarkdown thead th:last-child {
+  border-top-right-radius: 10px;
+}
+.stMarkdown tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 10px;
+}
+.stMarkdown tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
         st.markdown("#### 추천 정보")
         st.markdown(age_table_data[age_group], unsafe_allow_html=True)
 
