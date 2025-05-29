@@ -2,14 +2,16 @@ import streamlit as st
 import json, time, random, pathlib
 import pandas as pd
 from streamlit_lottie import st_lottie
+import requests
+from requests.exceptions import RequestException
 
 # ────── 📦 PILL-ADDICT PIPELINE ──────────────────────────────
 # 같은 프로젝트 폴더 안에 있는 pipeline.py 를 그대로 import
-from pipeline import (
-    parse_health_exam, load_reference, find_abnormal,
-    get_ingredients_from_abnormal_tuple, load_ingredient_info,
-    load_msd_manual, recommend_products, build_structured_data
-)
+# from pipeline import (
+#     parse_health_exam, load_reference, find_abnormal,
+#     get_ingredients_from_abnormal_tuple, load_ingredient_info,
+#     load_msd_manual, recommend_products, build_structured_data
+# )
 # ▸ pipeline.py 가 다른 디렉터리에 있으면 PYTHONPATH 추가 or sys.path 수정 필요
 # ─────────────────────────────────────────────────────────────
 
@@ -182,55 +184,57 @@ st.markdown("""
 if st.session_state.page == "검진 기반 추천":
     st.subheader("건강검진 기반 추천")
 
+    # 📡 현재 연결된 API 서버 주소
+    API_BASE = "http://127.0.0.1:8001"  # 배포된 FastAPI 서버 주소
+    TIMEOUT = 90
+    st.caption(f"📡 현재 연결된 서버: `{API_BASE}`")
+
     # 사용자 기본 입력
     user_name = st.text_input("이름", key="username_exam")
-    gender    = st.radio("성별", ["여성", "남성"], horizontal=True, key="gender_exam")
-
+    gender = st.radio("성별", ["여성", "남성"], horizontal=True, key="gender_exam")
     uploaded_file = st.file_uploader("건강검진 결과 PDF / 이미지", type=["jpg", "jpeg", "png", "pdf"], key="exam_file")
 
+    # 분석 버튼 동작
     if uploaded_file and user_name and gender:
         if st.button("분석 실행", key="run_exam"):
-            with st.spinner(random.choice(loading_messages)):
-                if lottie_health:
-                    st_lottie(lottie_health, height=160)
-                else:
-                    st.warning("🔄 분석 중입니다... (애니메이션 로딩 실패)")
+            with st.spinner("🔎 건강검진 분석 중..."):
                 file_bytes = uploaded_file.read()
-                file_type  = "pdf" if uploaded_file.type == "application/pdf" else "image"
+                file_type = "pdf" if uploaded_file.type == "application/pdf" else "image"
 
-                # 1) OCR & 파싱
-                exam_dict, ocr_text = parse_health_exam(file_bytes, file_type)
-
-                # 2) 이상치 탐지
-                ref_data   = load_reference()
-                abnormal   = find_abnormal(exam_dict, ref_data, gender)
-
-                # 3) 성분 & 제품 추천
-                ingredients       = get_ingredients_from_abnormal_tuple(abnormal)
-                ing_info_df       = load_ingredient_info()
-                msd_manual        = load_msd_manual()
                 try:
-                    supplements_df = pd.read_json("data/supplements.json")
-                except FileNotFoundError:
-                    supplements_df = pd.DataFrame()
-                products          = recommend_products(ingredients, supplements_df.to_dict("records"))
+                    # 서버로 POST 요청 보내기
+                    files = {"file": (uploaded_file.name, file_bytes, uploaded_file.type)}
+                    data = {
+                        "user_name": user_name,
+                        "gender": gender,
+                        "file_type": file_type
+                    }
+                    response = requests.post(
+                        f"{API_BASE}/analyze_exam",
+                        data=data,
+                        files=files,
+                        timeout=TIMEOUT
+                    )
 
-                # 4) GPT 맞춤형 응답
-                output = build_structured_data(
-                    exam_dict, abnormal, ingredients, products,
-                    ing_info_df, msd_manual, user_name
-                )
-                time.sleep(1.5)
+                    if response.status_code == 200:
+                        result = response.json()
 
-            # ─ 결과 표시 ─
-            st.success("✅ 분석 완료! 결과가 준비되었습니다.")
-            st.subheader("💡 맞춤형 건강 조언")
-            st.markdown(output["gpt_response"])
+                        # ─ 결과 표시 ─
+                        st.success("✅ 분석 완료! 결과가 준비되었습니다.")
+                        st.subheader("💡 맞춤형 건강 조언")
+                        st.markdown(result.get("gpt_response", "🤖 GPT 응답이 없습니다."))
 
-            with st.expander("🔎 세부 데이터 보기"):
-                st.json(output["structured_data"])
-            with st.expander("📝 OCR 원문"):
-                st.text(ocr_text)
+                        with st.expander("🔎 세부 데이터 보기"):
+                            st.json(result.get("structured_data", {}))
+
+                        with st.expander("📝 OCR 원문"):
+                            st.text(result.get("ocr_text", ""))
+
+                    else:
+                        st.error(f"❌ 분석 실패: {response.status_code} - {response.text}")
+
+                except Exception as e:
+                    st.error(f"❗ 서버 요청 중 오류 발생: {e}")
 
     else:
         st.info("🗂️ 이름·성별·파일을 모두 입력하면 분석 버튼이 활성화됩니다.")
@@ -238,6 +242,8 @@ if st.session_state.page == "검진 기반 추천":
 # ────── PAGE: 신체 부위 기반 추천 ────────────────────────
 elif st.session_state.page == "신체 부위 기반 추천":
     st.subheader("신체 부위 기반 건강 고민")
+    API_BASE = "http://127.0.0.1:8000" 
+    TIMEOUT = 90
     body_part = st.radio("신체 부위를 선택하세요", list(body_part_examples.keys()), horizontal=True)
     if body_part:
         st.session_state.selected_body_part = body_part
@@ -248,9 +254,38 @@ elif st.session_state.page == "신체 부위 기반 추천":
         with st.spinner(random.choice(loading_messages)):
             if lottie_health:
                 st_lottie(lottie_health, height=160)
-            # TODO: pipeline이 아닌 LLM 프롬프트만 호출 → 이후 연결
-            time.sleep(2)
-        st.success(f"✅ '{body_part}' 관련 추천이 완료되었습니다! (샘플)")
+            time.sleep(1.5)
+        try:
+            # 3-1) 기능 매칭
+            match_res = requests.post(
+                f"{API_BASE}/bodypart/bodyfunction/match",
+                json={"body_part": body_part, "function": user_input},
+                timeout=TIMEOUT
+            )
+            match_res.raise_for_status()
+            matched_fn = match_res.json().get("matched_function", user_input)
+
+            # 3-2) 본 추천
+            rec_res = requests.post(
+                f"{API_BASE}/bodypart/recommend",
+                json={"body_part": body_part, "function": matched_fn},
+                timeout=TIMEOUT
+            )
+            rec_res.raise_for_status()
+            data = rec_res.json()
+
+            # 4) 결과 렌더링
+            st.success("✅ 추천 결과")
+            st.markdown(data.get("recommendation", "결과가 없습니다."))
+
+            # 예시 제품 표
+            if data.get("matched_supplements"):
+                st.markdown("#### 예시 제품")
+                st.dataframe(data["matched_supplements"], use_container_width=True)
+
+
+        except Exception as e:
+            st.error(f"API 호출 실패: {e}")
 
 # ────── PAGE: 연령대 기반 추천 ────────────────────────────
 elif st.session_state.page == "연령대 기반 추천":
@@ -313,19 +348,39 @@ elif st.session_state.page == "연령대 기반 추천":
 # ────── PAGE: 사용자 설정 ────────────────────────────────
 elif st.session_state.page == "사용자 설정":
     st.subheader("건강 문진표 입력")
-    st.text_input("이름", key="username_basic")
-    st.radio("성별", ["남성", "여성"], horizontal=True, key="gender_basic")
-    st.date_input("생년월일", key="birth_basic")
-    st.multiselect("가족력", ["고혈압", "당뇨병", "심장병", "암", "기타"], key="family_basic")
-    st.multiselect("과거 병력", ["간염", "천식", "고지혈증", "우울증", "기타"], key="past_basic")
-    st.multiselect("알러지", ["계란", "우유", "갑각류", "약물", "기타"], key="allergy_basic")
-    st.text_area("복용 중인 약물", key="drug_basic")
-    st.radio("흡연 여부", ["비흡연", "과거 흡연", "현재 흡연"], horizontal=True, key="smoke_basic")
-    st.radio("음주 여부", ["전혀 안 함", "가끔", "자주"], horizontal=True, key="alcohol_basic")
-    st.slider("하루 평균 수면 시간 (시간)", 0, 12, 7, key="sleep_basic")
+    API_BASE = "http://127.0.0.1:8000"
+    TIMEOUT = 90
+    name = st.text_input("이름", key="username_basic")
+    gneder = st.radio("성별", ["남성", "여성"], horizontal=True, key="gender_basic")
+    birth = st.date_input("생년월일", key="birth_basic")
+    family = st.multiselect("가족력", ["고혈압", "당뇨병", "심장병", "암", "기타"], key="family_basic")
+    past = st.multiselect("과거 병력", ["간염", "천식", "고지혈증", "우울증", "기타"], key="past_basic")
+    allergy = st.multiselect("알러지", ["계란", "우유", "갑각류", "약물", "기타"], key="allergy_basic")
+    meds = st.text_area("복용 중인 약물", key="drug_basic")
+    smoke = st.radio("흡연 여부", ["비흡연", "과거 흡연", "현재 흡연"], horizontal=True, key="smoke_basic")
+    drink = st.radio("음주 여부", ["전혀 안 함", "가끔", "자주"], horizontal=True, key="alcohol_basic")
+    sleep = st.slider("하루 평균 수면 시간 (시간)", 0, 12, 7, key="sleep_basic")
 
     if st.button("저장", key="save_basic"):
-        st.success("✅ 건강 문진표가 저장되었습니다.")
+        survey = {
+            "name":               st.session_state.username_basic,
+            "gender":             st.session_state.gender_basic,
+            "birth_date":         st.session_state.birth_basic.isoformat(),
+            "family_history":     st.session_state.family_basic,
+            "past_medical_history": st.session_state.past_basic,
+            "allergies":          st.session_state.allergy_basic,
+            "current_medications": st.session_state.drug_basic,
+            "smoking_status":     st.session_state.smoke_basic,
+            "drinking_status":    st.session_state.alcohol_basic,
+            "average_sleep_hours": st.session_state.sleep_basic,
+        }
+
+        try:
+            res = requests.post(f"{API_BASE}/user/survey", json=survey, timeout=TIMEOUT)
+            res.raise_for_status()
+            st.success("✅ 건강 문진표가 저장되었습니다.")
+        except Exception as e:
+            st.error(f"문진표 저장 실패: {e}")
 
 # ────── fallback (잘못된 page 값) ──────────────────────────
 else:
