@@ -8,7 +8,8 @@ from pydantic import BaseSettings, AnyHttpUrl
 from pathlib import Path
 
 # .env 파일 로드
-load_dotenv()
+env_path = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # 기본 경로 설정
 BASE_DIR = Path(__file__).resolve().parents[1]
