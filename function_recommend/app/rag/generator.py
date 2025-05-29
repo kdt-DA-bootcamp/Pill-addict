@@ -6,10 +6,12 @@ from typing import List
 from openai import OpenAI
 from langchain_openai import ChatOpenAI
 from langchain.schema import Document
+import time
 
 
 # 프롬프트 작성
-_llm = ChatOpenAI(model_name="gpt-4o", temperature=0.2)
+_llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2)
+RATE_LIMIT_DELAY = 2.0 
 
 PROMPT = """당신은 관절, 뼈, 근육, 뇌, 소화계 등의 증상에 따라 적절한 건강기능식품을 추천하는 영양제 전문가입니다.
 아래 **컨텍스트**는 두 부분으로 이루어집니다.
@@ -29,7 +31,7 @@ PROMPT = """당신은 관절, 뼈, 근육, 뇌, 소화계 등의 증상에 따�
 {question}와(과) 관련된 신체 기전·원인을 2~3문장으로 요약합니다.
 
 ## 추천 기능성 성분
-| 성분명 | 기능성 설명 |
+| 성분명 | 기능성 설명 | 
 |--------|------------|
 | 예) 홍삼 | 면역 증진·피로 개선 도움 |
 | 예) 매실추출물 | 소화 효소 활성화 |
@@ -43,6 +45,7 @@ PROMPT = """당신은 관절, 뼈, 근육, 뇌, 소화계 등의 증상에 따�
 - **고위험군(임산부·항응고제 복용자 등):** •••  
 
 ## 추천 영양제 리스트
+아래에는 **컨텍스트의 메타데이터**(`name` 필드)에 있는 **실제 제품명**을 그대로 사용하여 2~3개를 선택하세요.  
 ### 1. {{제품명}}
 - ✅ **주성분**: …  
 - 💊 **권장 복용법**: …  
@@ -63,5 +66,6 @@ PROMPT = """당신은 관절, 뼈, 근육, 뇌, 소화계 등의 증상에 따�
 def generate_answer(context_docs: List[Document], question: str) -> str:
     context = "\n".join([d.page_content for d in context_docs])
     prompt = PROMPT.format(context=context, question=question)
+    time.sleep(RATE_LIMIT_DELAY)
     return _llm.invoke(prompt).content.strip()
 
