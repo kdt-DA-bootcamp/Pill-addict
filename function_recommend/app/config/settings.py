@@ -27,3 +27,5 @@ class Settings(BaseSettings):
     api_url: AnyHttpUrl = os.getenv("FASTAPI_URL", "http://localhost:8000")
 
 settings = Settings()
+
+print("✅ OPENAI_API_KEY =", os.getenv("OPENAI_API_KEY"))
