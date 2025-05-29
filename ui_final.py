@@ -184,55 +184,57 @@ st.markdown("""
 if st.session_state.page == "검진 기반 추천":
     st.subheader("건강검진 기반 추천")
 
+    # 📡 현재 연결된 API 서버 주소
+    API_BASE = "http://127.0.0.1:8001"  # 배포된 FastAPI 서버 주소
+    TIMEOUT = 90
+    st.caption(f"📡 현재 연결된 서버: `{API_BASE}`")
+
     # 사용자 기본 입력
     user_name = st.text_input("이름", key="username_exam")
-    gender    = st.radio("성별", ["여성", "남성"], horizontal=True, key="gender_exam")
-
+    gender = st.radio("성별", ["여성", "남성"], horizontal=True, key="gender_exam")
     uploaded_file = st.file_uploader("건강검진 결과 PDF / 이미지", type=["jpg", "jpeg", "png", "pdf"], key="exam_file")
 
+    # 분석 버튼 동작
     if uploaded_file and user_name and gender:
         if st.button("분석 실행", key="run_exam"):
-            with st.spinner(random.choice(loading_messages)):
-                if lottie_health:
-                    st_lottie(lottie_health, height=160)
-                else:
-                    st.warning("🔄 분석 중입니다... (애니메이션 로딩 실패)")
+            with st.spinner("🔎 건강검진 분석 중..."):
                 file_bytes = uploaded_file.read()
-                file_type  = "pdf" if uploaded_file.type == "application/pdf" else "image"
+                file_type = "pdf" if uploaded_file.type == "application/pdf" else "image"
 
-                # 1) OCR & 파싱
-                exam_dict, ocr_text = parse_health_exam(file_bytes, file_type)
-
-                # 2) 이상치 탐지
-                ref_data   = load_reference()
-                abnormal   = find_abnormal(exam_dict, ref_data, gender)
-
-                # 3) 성분 & 제품 추천
-                ingredients       = get_ingredients_from_abnormal_tuple(abnormal)
-                ing_info_df       = load_ingredient_info()
-                msd_manual        = load_msd_manual()
                 try:
-                    supplements_df = pd.read_json("data/supplements.json")
-                except FileNotFoundError:
-                    supplements_df = pd.DataFrame()
-                products          = recommend_products(ingredients, supplements_df.to_dict("records"))
+                    # 서버로 POST 요청 보내기
+                    files = {"file": (uploaded_file.name, file_bytes, uploaded_file.type)}
+                    data = {
+                        "user_name": user_name,
+                        "gender": gender,
+                        "file_type": file_type
+                    }
+                    response = requests.post(
+                        f"{API_BASE}/analyze_exam",
+                        data=data,
+                        files=files,
+                        timeout=TIMEOUT
+                    )
 
-                # 4) GPT 맞춤형 응답
-                output = build_structured_data(
-                    exam_dict, abnormal, ingredients, products,
-                    ing_info_df, msd_manual, user_name
-                )
-                time.sleep(1.5)
+                    if response.status_code == 200:
+                        result = response.json()
 
-            # ─ 결과 표시 ─
-            st.success("✅ 분석 완료! 결과가 준비되었습니다.")
-            st.subheader("💡 맞춤형 건강 조언")
-            st.markdown(output["gpt_response"])
+                        # ─ 결과 표시 ─
+                        st.success("✅ 분석 완료! 결과가 준비되었습니다.")
+                        st.subheader("💡 맞춤형 건강 조언")
+                        st.markdown(result.get("gpt_response", "🤖 GPT 응답이 없습니다."))
 
-            with st.expander("🔎 세부 데이터 보기"):
-                st.json(output["structured_data"])
-            with st.expander("📝 OCR 원문"):
-                st.text(ocr_text)
+                        with st.expander("🔎 세부 데이터 보기"):
+                            st.json(result.get("structured_data", {}))
+
+                        with st.expander("📝 OCR 원문"):
+                            st.text(result.get("ocr_text", ""))
+
+                    else:
+                        st.error(f"❌ 분석 실패: {response.status_code} - {response.text}")
+
+                except Exception as e:
+                    st.error(f"❗ 서버 요청 중 오류 발생: {e}")
 
     else:
         st.info("🗂️ 이름·성별·파일을 모두 입력하면 분석 버튼이 활성화됩니다.")
