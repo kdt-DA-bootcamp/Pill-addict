@@ -1,24 +1,28 @@
 ## 충돌방지 위해 버전 지정했습니다.
 
+# ───────────────────────────────────────────────────────────────────────────────
 # LLM & 벡터 DB 관련
 openai==1.23.6
 langchain==0.1.14
 langchain-openai==0.0.8
 faiss-cpu==1.7.4
 
-# FastAPI 관련
-fastapi==0.95.2 
-pydantic==1.10.13
+# FastAPI 관련 (Pydantic 2.x와 호환)
+fastapi==0.95.2
+pydantic==2.4.1
 uvicorn[standard]==0.29.0
+pydantic-settings==2.2.1
 
 # 데이터 및 메타데이터
 numpy==1.26.4
-scikit-learn==1.6.1  
-python-dotenv==1.0.1  
+scikit-learn==1.6.1
+python-dotenv==1.0.1
 tqdm==4.67.1
 requests==2.32.3
 
 # Streamlit
 streamlit==1.34.0
 streamlit-lottie==0.0.5
+
+
 
